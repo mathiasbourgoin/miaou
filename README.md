@@ -137,10 +137,16 @@ Set `MIAOU_DEBUG_KEYSTROKE_CAPTURE=1` (and optionally `MIAOU_DEBUG_KEYSTROKE_CAP
 Set `MIAOU_DEBUG_FRAME_CAPTURE=1` (and `MIAOU_DEBUG_FRAME_CAPTURE_PATH`) to persist rendered frames.
 If no overrides are provided the files are created in `MIAOU_DEBUG_CAPTURE_DIR` (defaults to the current working directory) under names such as `miaou_capture_keystrokes_<timestamp>.jsonl`.
 
+The [`recordings/`](./recordings/README.md) directory contains canonical JSONL and asciicast files you can replay or regenerate. See
+[`docs/CAPTURE_HELPER.md`](./docs/CAPTURE_HELPER.md) for a deeper walkthrough of the capture workflow.
+
 Helper scripts:
 
-- `./tools/capture_helper.sh -- dune exec -- miaou.demo` &ndash; wraps any command with the capture environment variables and prints the artifact locations.
+- `./tools/capture_helper.sh --dir recordings -- dune exec -- miaou.demo` &ndash; wraps any command with the capture environment variables and prints the artifact locations.
 - `./tools/replay_tui.py --keystrokes path/to/file --cmd "dune exec -- miaou.demo"` &ndash; replays a capture by feeding the recorded keys through a pseudo-TTY (optionally emitting an asciicast v3 file with `--write-cast`).
+- `./tools/replay_all_captures.sh [--dir recordings] [-- ...extra args...]` &ndash; replays every keystroke capture in a directory.
+- `./tools/replay_screencast.sh recordings/miaou_logging_switch_frames.jsonl` &ndash; replays the frame-only screencast in your terminal.
+- `./tools/convert_cast_to_gif.sh recordings/miaou_logging_switch.cast recordings/miaou_logging_switch.gif` &ndash; converts an asciinema cast into a GIF (see also `Dockerfile.cast2gif` + `tools/docker_convert_cast_entrypoint.sh`).
 
 Each keystroke JSONL line looks like `{"timestamp": <float>, "key": <string>}`. Frame captures add terminal geometry: `{"timestamp": <float>, "size": {"rows": <int>, "cols": <int>}, "frame": <string>}`.
 

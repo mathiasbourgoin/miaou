@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2025 Nomadic Labs
+FROM python:3.11-slim
+
+# Minimal image to re-run the replay and convert an asciinema cast to GIF
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+     asciinema \
+     imagemagick \
+     ca-certificates \
+     nodejs \
+     npm \
+     python3-pip \
+     # try to install agg if available on the distro, keep going if not
+     agg || true \
+  && pip install --no-cache-dir asciinema2gif \
+  && npm install -g svg-term-cli || true \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# copy only helper scripts; the repo will be mounted over /workspace when running
+COPY tools /workspace/tools
+
+ENTRYPOINT ["/workspace/tools/docker_convert_cast_entrypoint.sh"]
