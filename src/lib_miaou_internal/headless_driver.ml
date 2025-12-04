@@ -4,6 +4,7 @@
 [@@@warning "-32-34-37-69"]
 
 module Tui_page = Miaou_core.Tui_page
+module Capture = Miaou_core.Tui_capture
 open LTerm_geom
 
 module Key_queue = struct
@@ -75,7 +76,8 @@ let render_page_with (type s) (module P : Tui_page.PAGE_SIG with type state = s)
         base ^ "\n" ^ block
   in
   Screen.clear () ;
-  Screen.append content
+  Screen.append content ;
+  Capture.record_frame ~rows:size.rows ~cols:size.cols content
 
 let render_only (type s) (module P : Tui_page.PAGE_SIG with type state = s) :
     unit =
@@ -126,11 +128,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
              k
              (Miaou_core.Modal_manager.has_active ())
          with _ -> ()) ;
-        if
+        let forced_switch =
           String.length k > 11
           && String.sub k 0 11 = "__SWITCH__:"
           && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
-        then `SwitchTo (String.sub k 11 (String.length k - 11))
+        in
+        if not forced_switch then Capture.record_keystroke k ;
+        if forced_switch then `SwitchTo (String.sub k 11 (String.length k - 11))
         else
           let st' =
             if Miaou_core.Modal_manager.has_active () then (
@@ -211,14 +215,16 @@ module Stateful = struct
 
   let send_key k =
     ensure () ;
-    if
+    let forced_switch =
       String.length k > 11
       && String.sub k 0 11 = "__SWITCH__:"
       && Sys.getenv_opt "MIAOU_TEST_ALLOW_FORCED_SWITCH" = Some "1"
-    then
+    in
+    if forced_switch then
       let target = String.sub k 11 (String.length k - 11) in
       `SwitchTo target
     else (
+      Capture.record_keystroke k ;
       !send_key_impl k ;
       classify_next ())
 

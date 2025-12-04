@@ -35,7 +35,8 @@ module Page : PAGE_SIG = struct
   let has_modal _ = false
 
   let init () =
-    "Your terminal is narrow (< 80 cols). For best experience, widen it. Press any key to dismiss."
+    "Your terminal is narrow (< 80 cols). For best experience, widen it. Press \
+     any key to dismiss."
 
   let view s ~focus:_ ~size:_ = s
 

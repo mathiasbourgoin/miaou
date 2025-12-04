@@ -8,6 +8,7 @@
 
 module Logger_capability = Miaou_interfaces.Logger_capability
 open Tui_page
+module Capture = Tui_capture
 module Khs = Miaou_internals.Key_handler_stack
 
 (* Persistent session flags *)
@@ -328,8 +329,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       if
         size.LTerm_geom.rows <> !last_size.LTerm_geom.rows
         || size.LTerm_geom.cols <> !last_size.LTerm_geom.cols
-      then (
-        last_out_ref := "") ;
+      then last_out_ref := "" ;
       (* Publish current size to modal machinery for overlays. *)
       Modal_manager.set_current_size size.LTerm_geom.rows size.LTerm_geom.cols ;
       let body = Page.view st ~focus:true ~size in
@@ -400,6 +400,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           String.concat "\n" (head @ [last_line])
       in
       (* Write only when output changed; keeps the terminal stable and avoids flicker. *)
+      Capture.record_frame
+        ~rows:size.LTerm_geom.rows
+        ~cols:size.LTerm_geom.cols
+        out_trimmed ;
       let full_out = out_trimmed ^ "\n" in
       if full_out <> !last_out_ref then (
         (* Use full clear (ESC[2J]) then home (ESC[H]) to keep previous behavior. *)
@@ -739,6 +743,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           clear_and_render st' key_stack ;
           loop st' key_stack
       | `Enter -> (
+          Capture.record_keystroke "Enter" ;
           if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
           if Modal_manager.has_active () then
             if
@@ -798,6 +803,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             | `PrevPage -> "Shift-Tab"
             | _ -> ""
           in
+          if key <> "" then Capture.record_keystroke key ;
           if key = "" then (
             if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
             loop st key_stack)
@@ -843,6 +849,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   clear_and_render st' key_stack ;
                   loop st' key_stack')
       | `Other key ->
+          Capture.record_keystroke key ;
           if key = "?" then (
             (* Build help text with optional contextual hint (markdown),
           shown above the key bindings. Title is "hints" with a subtitle

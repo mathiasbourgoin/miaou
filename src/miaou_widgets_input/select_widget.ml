@@ -65,43 +65,14 @@ let get_selection_inner w = value_inner w
 let handle_key_inner w ~key =
   let total = List.length w.items in
   match key with
-  | "Up" ->
-      {
-        w with
-        cursor =
-          move_cursor
-            ~total
-            ~cursor:w.cursor
-            ~delta:(-1);
-      }
-  | "Down" ->
-      {
-        w with
-        cursor =
-          move_cursor
-            ~total
-            ~cursor:w.cursor
-            ~delta:1;
-      }
+  | "Up" -> {w with cursor = move_cursor ~total ~cursor:w.cursor ~delta:(-1)}
+  | "Down" -> {w with cursor = move_cursor ~total ~cursor:w.cursor ~delta:1}
   | "PageUp" ->
-      {
-        w with
-        cursor =
-          page_move
-            ~total
-            ~cursor:w.cursor
-            ~page_size:8
-            ~dir:`Up;
-      }
+      {w with cursor = page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up}
   | "PageDown" ->
       {
         w with
-        cursor =
-          page_move
-            ~total
-            ~cursor:w.cursor
-            ~page_size:8
-            ~dir:`Down;
+        cursor = page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
       }
   | "Home" -> {w with cursor = 0}
   | "End" -> {w with cursor = max 0 (total - 1)}

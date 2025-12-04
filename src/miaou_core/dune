@@ -14,6 +14,7 @@
   registry
   lambda_term_driver
   tui_driver
+  tui_capture
   tui_logger
   tui_page
   workflow
@@ -26,6 +27,7 @@
   miaou_internals
   yojson
   str
+  unix
   lwt
   lwt.unix
   miaou.widgets.input

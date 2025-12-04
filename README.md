@@ -130,6 +130,20 @@ dune exec -- miaou.demo --help # show CLI options if you add any
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
 
+Recording & replay
+--------------------
+
+Set `MIAOU_DEBUG_KEYSTROKE_CAPTURE=1` (and optionally `MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH`) to write a JSONL stream of every key processed by the Lambda-Term driver.
+Set `MIAOU_DEBUG_FRAME_CAPTURE=1` (and `MIAOU_DEBUG_FRAME_CAPTURE_PATH`) to persist rendered frames.
+If no overrides are provided the files are created in `MIAOU_DEBUG_CAPTURE_DIR` (defaults to the current working directory) under names such as `miaou_capture_keystrokes_<timestamp>.jsonl`.
+
+Helper scripts:
+
+- `./tools/capture_helper.sh -- dune exec -- miaou.demo` &ndash; wraps any command with the capture environment variables and prints the artifact locations.
+- `./tools/replay_tui.py --keystrokes path/to/file --cmd "dune exec -- miaou.demo"` &ndash; replays a capture by feeding the recorded keys through a pseudo-TTY (optionally emitting an asciicast v3 file with `--write-cast`).
+
+Each keystroke JSONL line looks like `{"timestamp": <float>, "key": <string>}`. Frame captures add terminal geometry: `{"timestamp": <float>, "size": {"rows": <int>, "cols": <int>}, "frame": <string>}`.
+
 Running tests
 -------------
 
@@ -166,6 +180,10 @@ Debugging & environment variables
 - `MIAOU_TUI_DEBUG_MODAL=1` — verbose modal-manager logging (also honored by `Miaou_internals.Modal_renderer`).
 - `MIAOU_TUI_UNICODE_BORDERS=false` — force ASCII borders if your terminal font lacks box-drawing glyphs.
 - `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development.
+- `MIAOU_DEBUG_KEYSTROKE_CAPTURE` / `MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH` — capture keystrokes to JSONL (see *Recording & replay*).
+- `MIAOU_DEBUG_FRAME_CAPTURE` / `MIAOU_DEBUG_FRAME_CAPTURE_PATH` — capture rendered frames.
+- `MIAOU_DEBUG_CAPTURE_DIR` — default directory for the capture files when explicit paths are not provided.
+
 - `MIAOU_TEST_ALLOW_FORCED_SWITCH=1` — enable the headless driver's `__SWITCH__:` escape hatch (useful in scripted tests).
 
 Troubleshooting

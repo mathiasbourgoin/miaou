@@ -95,9 +95,7 @@ let push (type s) (module P : Tui_page.PAGE_SIG with type state = s) ~(init : s)
 let pop_top () =
   match List.rev !stack with
   | [] -> ()
-  | Frame _ :: rest_rev ->
-      stack := List.rev rest_rev
-
+  | Frame _ :: rest_rev -> stack := List.rev rest_rev
 
 let handle_key key =
   match List.rev !stack with
@@ -148,9 +146,7 @@ let () =
         (title, left, max_width, dim, view_thunk))
       !stack
   in
-  try
-    Miaou_internals.Modal_snapshot.set_provider provider
-  with _ -> ()
+  try Miaou_internals.Modal_snapshot.set_provider provider with _ -> ()
 
 (* Helper: allow a modal to mark that the next key which closed it should
    be considered consumed and not propagated by the driver. This is useful

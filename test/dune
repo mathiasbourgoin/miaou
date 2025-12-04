@@ -40,3 +40,8 @@
   miaou.core
   miaou.widgets.layout
   miaou.lib_miaou_internal))
+
+(test
+ (name test_capture)
+ (modules test_capture)
+ (libraries alcotest miaou.core miaou.lib_miaou_internal))

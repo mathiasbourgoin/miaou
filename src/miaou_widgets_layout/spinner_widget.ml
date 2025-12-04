@@ -26,7 +26,5 @@ let render t =
   let v = Miaou_helpers.Helpers.visible_chars_count content in
   if v <= t.width then content
   else
-    let idx =
-      Miaou_helpers.Helpers.visible_byte_index_of_pos content t.width
-    in
+    let idx = Miaou_helpers.Helpers.visible_byte_index_of_pos content t.width in
     String.sub content 0 idx

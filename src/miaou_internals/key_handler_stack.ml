@@ -10,7 +10,8 @@ type action = unit -> unit
 
 type frame = {
   id : int;
-  delegate : bool; (* If true, keys not handled here bubble down to lower frames *)
+  delegate : bool;
+      (* If true, keys not handled here bubble down to lower frames *)
   bindings : (string, action * string) Hashtbl.t;
 }
 
