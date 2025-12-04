@@ -622,7 +622,7 @@ module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   type msg = unit
 
   let sample_json =
-    "{\"services\": {\"node\": {\"status\": \"ready\"}, \"baker\": \
+    "{\"services\": {\"scheduler\": {\"status\": \"ready\"}, \"worker\": \
      {\"status\": \"syncing\"}}, \"counters\": [1,2,3]}"
 
   let init () =
@@ -682,7 +682,7 @@ module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let cols = max 40 size.LTerm_geom.cols in
     let pane =
       Pane.create
-        ~left:"Services\n- Node: healthy\n- Baker: syncing\n- Accuser: idle"
+        ~left:"Services\n- API: healthy\n- Worker: syncing\n- Scheduler: idle"
         ~right:"Latest logs\nINFO ready\nWARN sync lag\nINFO checkpoint"
         ~left_ratio:0.45
         ()

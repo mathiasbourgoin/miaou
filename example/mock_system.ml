@@ -6,8 +6,8 @@
 (*****************************************************************************)
 (* Mock System implementation for examples and tests.
 
-   Previous version always returned a hard-coded baker JSON embedding
-   delegate_key_alias = "delegateZ" which made tests asserting per-flow
+   Previous version always returned a hard-coded service JSON embedding a
+   delegate_key_alias of "delegateZ", which made tests asserting per-flow
    delegate selection fail (they always read delegateZ back). We now keep
    an in-memory table of written JSON files so that service creation logic
    (which writes the file) can be observed by later reads. *)
