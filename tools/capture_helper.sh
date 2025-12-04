@@ -77,10 +77,10 @@ BASE_DIR="${MIAOU_DEBUG_CAPTURE_DIR:-$(pwd)}"
 mkdir -p "$BASE_DIR"
 
 if [[ -z "$KEYS" ]]; then
-  KEYS="$BASE_DIR/miaou_capture_keystrokes_$(stamp).jsonl"
+  KEYS=$(mktemp "$BASE_DIR/miaou_capture_keystrokes_XXXXXX.jsonl")
 fi
 if [[ -z "$FRAMES" ]]; then
-  FRAMES="$BASE_DIR/miaou_capture_frames_$(stamp).jsonl"
+  FRAMES=$(mktemp "$BASE_DIR/miaou_capture_frames_XXXXXX.jsonl")
 fi
 
 export MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH="$KEYS"

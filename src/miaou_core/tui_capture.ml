@@ -41,16 +41,22 @@ let rec ensure_dir path =
 
 type writer = {oc : out_channel}
 
-let keystroke_writer : writer option ref = ref None
+type writer_state = Uninitialized | Active of writer | Disabled
 
-let frame_writer : writer option ref = ref None
+let keystroke_writer : writer_state ref = ref Uninitialized
+
+let frame_writer : writer_state ref = ref Uninitialized
+
+let writer_mutex = Mutex.create ()
 
 let close_writer_opt slot =
-  match !slot with
-  | None -> ()
-  | Some w ->
+  Mutex.lock writer_mutex ;
+  (match !slot with
+  | Active w ->
       (try close_out w.oc with _ -> ()) ;
-      slot := None
+      slot := Uninitialized
+  | _ -> ()) ;
+  Mutex.unlock writer_mutex
 
 let () =
   at_exit (fun () ->
@@ -98,11 +104,27 @@ let create_writer ~kind ~flag_env ~path_env =
 
 let ensure_writer slot create =
   match !slot with
-  | Some _ as w -> w
-  | None ->
-      let writer = create () in
-      slot := writer ;
-      writer
+  | Active w -> Some w
+  | Disabled -> None
+  | Uninitialized -> (
+      Mutex.lock writer_mutex ;
+      match !slot with
+      | Active w ->
+          Mutex.unlock writer_mutex ;
+          Some w
+      | Disabled ->
+          Mutex.unlock writer_mutex ;
+          None
+      | Uninitialized -> (
+          match create () with
+          | Some w ->
+              slot := Active w ;
+              Mutex.unlock writer_mutex ;
+              Some w
+          | None ->
+              slot := Disabled ;
+              Mutex.unlock writer_mutex ;
+              None))
 
 let record_keystroke key =
   match
@@ -114,12 +136,14 @@ let record_keystroke key =
   with
   | None -> ()
   | Some w ->
-      fprintf
-        w.oc
-        "{\"timestamp\": %.6f, \"key\": %S}\n"
-        (Unix.gettimeofday ())
-        key ;
-      flush w.oc
+      (try
+         fprintf
+           w.oc
+           "{\"timestamp\": %.6f, \"key\": %S}\n"
+           (Unix.gettimeofday ())
+           key ;
+         flush w.oc
+       with _ -> ())
 
 let record_frame ~rows ~cols frame =
   match
@@ -131,15 +155,17 @@ let record_frame ~rows ~cols frame =
   with
   | None -> ()
   | Some w ->
-      fprintf
-        w.oc
-        "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
-         \"frame\": %S}\n"
-        (Unix.gettimeofday ())
-        rows
-        cols
-        frame ;
-      flush w.oc
+      (try
+         fprintf
+           w.oc
+           "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
+            \"frame\": %S}\n"
+           (Unix.gettimeofday ())
+           rows
+           cols
+           frame ;
+         flush w.oc
+       with _ -> ())
 
 let reset_for_tests () =
   close_writer_opt keystroke_writer ;

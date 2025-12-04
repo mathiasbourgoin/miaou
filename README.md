@@ -147,6 +147,8 @@ Helper scripts:
 - `./tools/replay_all_captures.sh [--dir recordings] [-- ...extra args...]` &ndash; replays every keystroke capture in a directory.
 - `./tools/replay_screencast.sh recordings/miaou_logging_switch_frames.jsonl` &ndash; replays the frame-only screencast in your terminal.
 - `./tools/convert_cast_to_gif.sh recordings/miaou_logging_switch.cast recordings/miaou_logging_switch.gif` &ndash; converts an asciinema cast into a GIF (see also `Dockerfile.cast2gif` + `tools/docker_convert_cast_entrypoint.sh`).
+- `./tools/run_capture_helpers_smoke.sh` &ndash; CI-friendly smoke test that verifies helpers/docs/sample artifacts are present.
+- `./tools/upload_gifs_to_mr.py` &ndash; GitLab helper that uploads `recordings/*.gif` to the current Merge Request (requires `requests`; see `tools/requirements.txt`).
 
 Each keystroke JSONL line looks like `{"timestamp": <float>, "key": <string>}`. Frame captures add terminal geometry: `{"timestamp": <float>, "size": {"rows": <int>, "cols": <int>}, "frame": <string>}`.
 
@@ -160,24 +162,24 @@ make test
 # or: eval $(opam env) && dune runtest
 ```
 
-The `test/` directory contains widget/layout regression tests plus a synthetic adaptive page exercised through the headless driver shipped in `lib_miaou_internal`. You can also run the install rule (`dune build @install`) to ensure opam packaging stays healthy.
+The `test/` directory contains widget/layout regression tests plus a synthetic adaptive page exercised through the headless driver shipped in `src/lib_miaou_internal`. You can also run the install rule (`dune build @install`) to ensure opam packaging stays healthy.
 
 Capabilities
 ------------
 
-Miaou relies on a capability system so the driver (or host application) can decide how to perform side-effects. Before launching the UI you should register implementations for the following interfaces (see `miaou_interfaces/`):
+Miaou relies on a capability system so the driver (or host application) can decide how to perform side-effects. Before launching the UI you should register implementations for the following interfaces (see `src/miaou_interfaces/`):
 
 - `Miaou_interfaces.System` — file-system and process helpers (required by file browsers, log viewers, etc.).
 - `Miaou_interfaces.Logger` — sink for structured log output from widgets and the driver (optional but recommended).
 - `Miaou_interfaces.Service_lifecycle` — used by the service manager widgets; provide stubs if your app does not manage OS services.
-- `Miaou.Net` — HTTP capability used by network-aware widgets; the repo ships a simple `cohttp_lwt_unix` provider (`cohttp_net.ml`).
+- `Miaou.Net` — HTTP capability used by network-aware widgets; the repo ships a simple `cohttp_lwt_unix` provider (`src/cohttp_net.ml`).
 
 Register your implementations via `Miaou_interfaces.Capability.set` (or the helper `register` functions exposed by each interface) before calling `Miaou.Core.Tui_driver.start`. Tests use the mock implementations in `example/` for reference.
 
 Configuration & options
 -----------------------
 
--- Logging/debug: enable debug output by setting `MIAOU_TUI_DEBUG_MODAL=1` (used by modal manager internals).
+- Logging/debug: enable debug output by setting `MIAOU_TUI_DEBUG_MODAL=1` (used by modal manager internals).
 - Backend selection: MIAOU uses λ-term by default; the driver/backend interface makes alternate backends possible.
 
 Debugging & environment variables
@@ -233,12 +235,12 @@ Miaou follows semantic versioning (MAJOR.MINOR.PATCH). Cut releases by tagging (
 Further reading
 ---------------
 
-- Core API and driver: source under [miaou_core/](./miaou_core/)
+- Core API and driver: source under [src/miaou_core/](./src/miaou_core/)
 - Widgets:
-	- Display primitives and pager: [miaou_widgets_display/](./miaou_widgets_display/)
-	- Layout (panes, vsection, progress, file browser): [miaou_widgets_layout/](./miaou_widgets_layout/)
-	- Input (textbox, select): [miaou_widgets_input/](./miaou_widgets_input/)
-- Internals (renderer, modal machinery internals): [miaou_internals/](./miaou_internals/)
+	- Display primitives and pager: [src/miaou_widgets_display/](./src/miaou_widgets_display/)
+	- Layout (panes, vsection, progress, file browser): [src/miaou_widgets_layout/](./src/miaou_widgets_layout/)
+	- Input (textbox, select): [src/miaou_widgets_input/](./src/miaou_widgets_input/)
+- Internals (renderer, modal machinery internals): [src/miaou_internals/](./src/miaou_internals/)
 
 
 ## Project home

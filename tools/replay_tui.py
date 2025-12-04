@@ -23,6 +23,9 @@ import time
 import fcntl
 from pathlib import Path
 
+if sys.platform == "win32":
+    raise SystemExit("replay_tui.py is not supported on Windows")
+
 
 def load_events(path: str) -> list[tuple[float, str]]:
     with open(path, "r", encoding="utf8") as handle:

@@ -4,14 +4,10 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-(* SPDX-License-Identifier: MIT                                              *)
-(* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
-(*                                                                           *)
-(*****************************************************************************)
 
 [@@@warning "-32-34-37-69"]
 
-open Tui_page (* Added this line *)
+open Tui_page
 
 type t = private T
 
@@ -32,7 +28,6 @@ let clear () =
 
 let flush () = ()
 
-(* Added page management logic *)
 let current_page : (module PAGE_SIG) option ref = ref None
 
 let set_page (page_module : (module PAGE_SIG)) =
