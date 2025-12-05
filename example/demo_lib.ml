@@ -11,13 +11,10 @@ let register_all () =
   let () = Miaou_example.Mock_palette.register () in
   Printf.printf "miaou example: registered mocks\n"
 
-let () = register_all ()
-
-(* Sanity check: ensure System capability registered by mocks; fail early otherwise. *)
-let () =
-  if Miaou_interfaces.System.get () = None then
-    failwith "capability missing: System (demo)"
-  else ()
+let ensure_system_capability () =
+  match Miaou_interfaces.System.get () with
+  | Some _ -> ()
+  | None -> failwith "capability missing: System (demo)"
 
 (* Miaou demo launcher - using Miaou.Core.Tui_driver *)
 
@@ -1114,8 +1111,6 @@ end
 let page : Miaou.Core.Registry.page =
   (module Page : Miaou.Core.Tui_page.PAGE_SIG)
 
-let () =
+let register_page () =
   if not (Miaou.Core.Registry.exists launcher_page_name) then
     Miaou.Core.Registry.register launcher_page_name page
-
-let () = ignore (Miaou.Core.Tui_driver.run page)

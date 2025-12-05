@@ -8,11 +8,24 @@
   mock_palette)
  (libraries miaou))
 
+(library
+ (name miaou_demo_lib)
+ (modules demo_lib)
+ (wrapped false)
+ (libraries miaou miaou_example))
+
 (include_subdirs no)
 
 (executable
- (name demo)
+ (name demo_tui)
  (public_name miaou.demo)
  (package miaou)
- (modules demo)
- (libraries miaou miaou_example))
+ (modules demo_tui)
+ (libraries miaou_demo_lib miaou))
+
+(executable
+ (name demo_sdl)
+ (public_name miaou.demo-sdl)
+ (package miaou)
+ (modules demo_sdl)
+ (libraries miaou_demo_lib miaou.runner.native))
