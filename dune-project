@@ -22,3 +22,27 @@
   uri
   yojson
   (alcotest :with-test)))
+
+(package
+ (name miaou-core)
+ (synopsis "Miaou core/widgets (no drivers)")
+ (depends miaou)
+ (allow_empty true))
+
+(package
+ (name miaou-driver-term)
+ (synopsis "Miaou terminal driver")
+ (depends miaou-core)
+ (allow_empty true))
+
+(package
+ (name miaou-driver-sdl)
+ (synopsis "Miaou SDL driver")
+ (depends miaou-core)
+ (allow_empty true))
+
+(package
+ (name miaou-runner)
+ (synopsis "Miaou runner with backend selection")
+ (depends miaou-core miaou-driver-term miaou-driver-sdl)
+ (allow_empty true))
