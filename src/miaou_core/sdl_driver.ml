@@ -19,6 +19,8 @@ open LTerm_geom
 
 let () = Random.self_init ()
 
+let available = true
+
 type color = {r : int; g : int; b : int; a : int}
 
 type ansi_state = {fg : color; bg : color}
@@ -711,6 +713,8 @@ let render_page (type s) (module P : PAGE_SIG with type state = s) st size =
 
 let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     [`Quit | `SwitchTo of string] =
+  let available = true in
+  ignore available ;
   with_sdl @@ fun () ->
   Miaou_widgets_display.Widgets.set_backend `Sdl ;
   let font_path =

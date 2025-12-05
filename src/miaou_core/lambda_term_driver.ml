@@ -18,6 +18,8 @@ module LT = LTerm
 
 type t = private T
 
+let available = true
+
 let size () = (Obj.magic 0 : t)
 
 let clear () =

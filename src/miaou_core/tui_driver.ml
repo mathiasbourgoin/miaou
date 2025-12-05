@@ -36,9 +36,12 @@ let set_page (page_module : (module PAGE_SIG)) =
 
 let backend_choice () =
   match Sys.getenv_opt "MIAOU_DRIVER" with
-  | Some v when String.lowercase_ascii (String.trim v) = "sdl" -> (
-      if Sdl_enabled.enabled then `Sdl else `Lambda_term)
-  | _ -> `Lambda_term
+  | Some v -> (
+      match String.lowercase_ascii (String.trim v) with
+      | "sdl" when Sdl_enabled.enabled && Sdl_driver.available -> `Sdl
+      | "html" when Html_driver.available -> `Html
+      | _ -> `Lambda_term)
+  | None -> `Lambda_term
 
 let run (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
@@ -50,6 +53,9 @@ let run (initial_page : (module PAGE_SIG)) : outcome =
       | `Sdl ->
           Widgets.set_backend `Sdl ;
           Sdl_driver.run page
+      | `Html ->
+          Widgets.set_backend `Terminal ;
+          Html_driver.run page
       | `Lambda_term ->
           Widgets.set_backend `Terminal ;
           Lambda_term_driver.run page
