@@ -13,6 +13,7 @@ type t = {
   cursor : int;
   cancelled : bool;
   dirs_only : bool;
+  require_writable : bool;
   (* New: direct path editing *)
   mode : mode;
   path_buffer : string;
@@ -62,13 +63,14 @@ let rec normalize_start p =
       if parent = p then "/" else normalize_start parent
   with _ -> "/"
 
-let open_centered ?(path = "/") ?(dirs_only = true) () =
+let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true) () =
   let start = normalize_start path in
   {
     current_path = start;
     cursor = 0;
     cancelled = false;
     dirs_only;
+    require_writable;
     mode = Browsing;
     path_buffer = "";
     path_error = None;
@@ -298,34 +300,36 @@ let handle_key w ~key =
           in
           let exists = sys.file_exists p in
           if not exists then {w with path_error = Some "Path not found"}
-          else if sys.is_directory p then
-            if is_writable p then
+          else
+            let writable_ok = (not w.require_writable) || is_writable p in
+            if sys.is_directory p then
+              if writable_ok then
+                {
+                  w with
+                  current_path = p;
+                  cursor = 0;
+                  mode = Browsing;
+                  path_error = None;
+                  pending_selection = None;
+                  history =
+                    (if p = "" then w.history
+                     else
+                       let h = List.filter (fun x -> x <> p) w.history in
+                       p :: h);
+                  history_idx = None;
+                }
+              else {w with path_error = Some "Not writable"}
+            else if writable_ok then
               {
                 w with
-                current_path = p;
-                cursor = 0;
-                mode = Browsing;
+                pending_selection = Some p;
                 path_error = None;
-                pending_selection = None;
                 history =
-                  (if p = "" then w.history
-                   else
-                     let h = List.filter (fun x -> x <> p) w.history in
-                     p :: h);
+                  (let h = List.filter (fun x -> x <> p) w.history in
+                   p :: h);
                 history_idx = None;
               }
             else {w with path_error = Some "Not writable"}
-          else if is_writable p then
-            {
-              w with
-              pending_selection = Some p;
-              path_error = None;
-              history =
-                (let h = List.filter (fun x -> x <> p) w.history in
-                 p :: h);
-              history_idx = None;
-            }
-          else {w with path_error = Some "Not writable"}
       | _, Some tb -> {w with textbox = Some (textbox_handle_key tb ~key)}
       | _, None -> w)
 

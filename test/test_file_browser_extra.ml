@@ -47,6 +47,14 @@ let test_not_writable_error () =
   let w = FB.handle_key w ~key:"Enter" in
   check bool "path error set" true (Option.is_some w.FB.path_error)
 
+let test_read_only_mode () =
+  Miaou_interfaces.System.set (make_stub ~writable:false) ;
+  let w = FB.open_centered ~path:"/tmp" ~dirs_only:false ~require_writable:false () in
+  let tb = FB.textbox_create ~initial:"/tmp/dir1" () in
+  let w = {w with FB.mode = FB.EditingPath; textbox = Some tb} in
+  let w = FB.handle_key w ~key:"Enter" in
+  check bool "no error in read mode" true (Option.is_none w.FB.path_error)
+
 let () =
   run
     "file_browser_extra"
@@ -55,5 +63,6 @@ let () =
         [
           test_case "autocomplete/history" `Quick test_autocomplete_and_history;
           test_case "not writable" `Quick test_not_writable_error;
+          test_case "read only mode" `Quick test_read_only_mode;
         ] );
     ]
