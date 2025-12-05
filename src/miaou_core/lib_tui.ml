@@ -19,7 +19,6 @@ module Pane_layout = Miaou_widgets_layout.Pane_layout
 module Pager_widget = Miaou_widgets_display.Pager_widget
 module Tree_widget = Miaou_widgets_display.Tree_widget
 module Tui_driver = Tui_driver
-module Sdl_driver = Sdl_driver
 module Tui_logger = Tui_logger
 
 (* The following modules are application-specific and are intentionally

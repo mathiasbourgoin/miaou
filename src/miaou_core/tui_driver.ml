@@ -39,7 +39,6 @@ let backend_choice () =
   match Sys.getenv_opt "MIAOU_DRIVER" with
   | Some v -> (
       match String.lowercase_ascii (String.trim v) with
-      | "sdl" when Sdl_enabled.enabled && Sdl_driver.available -> `Sdl
       | "html" when Html_driver.available -> `Html
       | _ -> `Lambda_term)
   | None -> `Lambda_term
@@ -51,9 +50,6 @@ let run (initial_page : (module PAGE_SIG)) : outcome =
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
       match backend_choice () with
-      | `Sdl ->
-          Widgets.set_backend `Sdl ;
-          Sdl_driver.run page
       | `Html ->
           Widgets.set_backend `Terminal ;
           Html_driver.run page

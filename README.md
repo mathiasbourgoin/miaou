@@ -31,7 +31,7 @@ Features at a glance
 Backends
 --------
 
-MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) is available by setting `MIAOU_DRIVER=sdl` (or by invoking `Miaou.Core.Sdl_driver.run` directly). Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
+MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) lives in the `miaou-driver-sdl` package; use the `miaou-runner-native` executable or set `MIAOU_DRIVER=sdl` when that driver is present. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
 
 Quick start — build & depend
 ----------------------------
