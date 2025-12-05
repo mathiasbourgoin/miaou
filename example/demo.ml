@@ -267,7 +267,15 @@ module Table_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       Miaou_widgets_display.Widgets.dim
         "↑/↓ to move • Enter logs the selection • Esc returns"
     in
-    header ^ "\n\n" ^ Miaou_widgets_display.Table_widget.Table.render s.table
+    let body =
+      Miaou_widgets_display.Table_widget.render_table_80
+        ~cols:(Some 80)
+        ~header:("Name", "Score", "Status")
+        ~rows:s.table.rows
+        ~cursor:s.table.cursor
+        ~sel_col:0
+    in
+    header ^ "\n\n" ^ body
 
   let log_selection table =
     match Miaou_widgets_display.Table_widget.Table.get_selected table with
@@ -1011,7 +1019,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let module W = Miaou_widgets_display.Widgets in
     let header = W.titleize "MIAOU demo launcher" in
     let instructions =
-      W.dim "Use ↑/↓ (or j/k) to move, Enter to launch a demo, q to exit"
+      W.dim "Use ↑/↓ (or j/k) to move, Enter to launch a demo, q or Esc to exit"
     in
     let items =
       List.mapi
@@ -1028,7 +1036,10 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some Miaou.Core.Keys.Left -> update s (Move (-1))
     | Some Miaou.Core.Keys.Right -> update s (Move 1)
     | Some Miaou.Core.Keys.Enter -> open_demo s s.cursor
-    | Some (Miaou.Core.Keys.Char "q") -> s
+    | Some (Miaou.Core.Keys.Char "q")
+    | Some (Miaou.Core.Keys.Char "Esc")
+    | Some (Miaou.Core.Keys.Char "Escape") ->
+        {s with next_page = Some "__QUIT__"}
     | Some (Miaou.Core.Keys.Char " ") -> open_demo s s.cursor
     | None -> s
     | _ -> s

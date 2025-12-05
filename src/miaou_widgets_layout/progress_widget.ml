@@ -72,7 +72,7 @@ let render_bar ~width ~progress : string =
     let empty_str = String.make empty_w ' ' in
     left ^ filled_colored ^ empty_str ^ right
 
-let render w ~cols:_ : string =
+let render_terminal w ~cols:_ =
   let bar = render_bar ~width:w.width ~progress:w.progress in
   let pct = int_of_float (floor ((100. *. w.progress) +. 0.5)) in
   let pct_s = Printf.sprintf "%3d%%" pct in
@@ -97,5 +97,12 @@ let render w ~cols:_ : string =
       let title = Miaou_widgets_display.Widgets.titleize t in
       String.concat "\n" [title; bar_and_pct]
   | None, None -> bar_and_pct
+
+let render w ~cols =
+  match Miaou_widgets_display.Widgets.get_backend () with
+  | `Sdl ->
+      Progress_widget_sdl.render ~width:w.width ~progress:w.progress
+        ~label:w.label ~title:w.title ~cols
+  | `Terminal -> render_terminal w ~cols
 
 let handle_key w ~key:_ = w

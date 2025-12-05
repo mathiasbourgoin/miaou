@@ -4,25 +4,53 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-open Widgets
+module W = Widgets
 module Palette = Palette
 
-(* Local glyph aliases *)
-let glyph_vline = glyph_vline
+type glyphs = {
+  vline : string;
+  hline : string;
+  corner_tl : string;
+  corner_tr : string;
+  corner_bl : string;
+  corner_br : string;
+  top_sep : string;
+  mid_left : string;
+  mid_sep : string;
+  mid_right : string;
+  bottom_sep : string;
+}
 
-let glyph_hline = glyph_hline
+let glyphs_for_backend ?backend () =
+  let use_ascii = W.prefer_ascii ?backend () in
+  let glyph_corner_tl = if use_ascii then "+" else "┌" in
+  let glyph_corner_tr = if use_ascii then "+" else "┐" in
+  let glyph_corner_bl = if use_ascii then "+" else "└" in
+  let glyph_corner_br = if use_ascii then "+" else "┘" in
+  let glyph_hline = if use_ascii then "-" else "─" in
+  let glyph_vline = if use_ascii then "|" else "│" in
+  let glyph_top_sep = if use_ascii then "+" else "┬" in
+  let glyph_mid_left = if use_ascii then "+" else "├" in
+  let glyph_mid_sep = if use_ascii then "+" else "┼" in
+  let glyph_mid_right = if use_ascii then "+" else "┤" in
+  let glyph_bottom_sep = if use_ascii then "+" else "┴" in
+  {
+    vline = glyph_vline;
+    hline = glyph_hline;
+    corner_tl = glyph_corner_tl;
+    corner_tr = glyph_corner_tr;
+    corner_bl = glyph_corner_bl;
+    corner_br = glyph_corner_br;
+    top_sep = glyph_top_sep;
+    mid_left = glyph_mid_left;
+    mid_sep = glyph_mid_sep;
+    mid_right = glyph_mid_right;
+    bottom_sep = glyph_bottom_sep;
+  }
 
-let glyph_corner_tl = glyph_corner_tl
+let visible_chars_count = W.visible_chars_count
 
-let glyph_corner_tr = glyph_corner_tr
-
-let glyph_corner_bl = glyph_corner_bl
-
-let glyph_corner_br = glyph_corner_br
-
-let visible_chars_count = visible_chars_count
-
-let visible_byte_index_of_pos = visible_byte_index_of_pos
+let visible_byte_index_of_pos = W.visible_byte_index_of_pos
 
 let pad s w =
   if visible_chars_count s <= w then
@@ -45,10 +73,98 @@ type render_opts = {
 
 let default_opts = {selection_mode = Row; highlight_header = false; sort = None}
 
+let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
+  (* More UI-like SDL style: solid rows and badges. Kept as a separate entrypoint
+     from the terminal renderer to avoid imposing styling on all tables. *)
+  let open Widgets in
+  let total_w =
+    match cols with Some c -> max 30 (min c 140) | None -> col_widths_total
+  in
+  let inner_w = max 10 (total_w - 4) in
+  let pad_cell s w =
+    if visible_chars_count s <= w then
+      s ^ String.make (max 0 (w - visible_chars_count s)) ' '
+    else
+      let idx = visible_byte_index_of_pos s (max 0 (w - 1)) in
+      String.sub s 0 idx ^ "…"
+  in
+  let header_list = [h1; h2; h3] in
+  let rows_list = List.map (fun (a, b, c) -> [a; b; c]) rows in
+  let col_count = List.length header_list in
+  let content_widths =
+    let all_rows = header_list :: rows_list in
+    List.init col_count (fun col ->
+        List.fold_left
+          (fun acc row ->
+            let cell = List.nth_opt row col |> Option.value ~default:"" in
+            max acc (visible_chars_count cell))
+          0
+          all_rows)
+  in
+  let base_widths =
+    List.map (fun w -> min w (inner_w / max 1 col_count)) content_widths
+  in
+  let total_base = List.fold_left ( + ) 0 base_widths in
+  let extra = max 0 (inner_w - total_base) in
+  let col_widths =
+    List.mapi
+      (fun _ w ->
+        let add = if col_count = 0 then 0 else extra / col_count in
+        w + add + 2)
+      base_widths
+  in
+  let badge color txt = fg color (bold ("● " ^ txt)) in
+  let style_status s =
+    match String.lowercase_ascii (String.trim s) with
+    | "ok" | "ready" -> badge 82 s
+    | "warn" | "warning" -> badge 214 s
+    | "error" | "fail" -> badge 196 s
+    | _ -> badge 75 s
+  in
+  let header_line =
+    let cells =
+      List.mapi
+        (fun i h ->
+          let w = List.nth col_widths i in
+          let base = pad_cell (String.uppercase_ascii h) (w - 2) in
+          let padded = " " ^ base ^ " " in
+          fg 255 (bold padded))
+        header_list
+    in
+    let line = "  " ^ String.concat (fg 60 "│") cells in
+    line
+  in
+  let line_for_row idx row =
+    let row_bg =
+      match opts.selection_mode with
+      | Row when idx = cursor -> bg 24
+      | _ -> bg 235
+    in
+    let cells =
+      List.mapi
+        (fun i cell ->
+          let w = List.nth col_widths i in
+          let cell =
+            if i = 2 then style_status cell else pad_cell cell (w - 2)
+          in
+          let padded = " " ^ pad_cell cell (w - 2) ^ " " in
+          padded)
+        row
+    in
+    let pointer = if idx = cursor then fg 51 ">" else " " in
+    let bar = String.concat (fg 60 "│") cells in
+    let with_pointer = pointer ^ " " ^ bar in
+    if idx = cursor then row_bg with_pointer else with_pointer
+  in
+  let body = List.mapi (fun i row -> line_for_row i row) rows_list in
+  let header_sep = fg 60 (String.make (max 0 (String.length header_line)) '-') in
+  String.concat "\n" (header_line :: header_sep :: body)
+
 (* Generic table renderer that handles column width calculation, padding,
    borders, and selection highlighting. *)
-let render_table_generic_with_opts ~cols ~header_list ~rows_list ~cursor
+let render_table_generic_with_opts ?backend ~cols ~header_list ~rows_list ~cursor
     ~sel_col:_ ~opts ?(col_opts = []) () =
+  let glyphs = glyphs_for_backend ?backend () in
   let total_w =
     match cols with Some c -> max 20 (min c 240) | None -> col_widths_total
   in
@@ -111,44 +227,39 @@ let render_table_generic_with_opts ~cols ~header_list ~rows_list ~cursor
         String.make copts.pad_left ' ' ^ base ^ String.make copts.pad_right ' ')
       header_list
   in
-  let glyph_top_sep = glyph_top_sep in
-  let glyph_mid_left = glyph_mid_left in
-  let glyph_mid_sep = glyph_mid_sep in
-  let glyph_mid_right = glyph_mid_right in
-  let glyph_bottom_sep = glyph_bottom_sep in
   let header_line =
     let line =
-      glyph_vline
-      ^ (headers_padded |> List.map bold |> String.concat glyph_vline)
-      ^ glyph_vline
+      glyphs.vline
+      ^ (headers_padded |> List.map W.bold |> String.concat glyphs.vline)
+      ^ glyphs.vline
     in
     if opts.highlight_header then Palette.purple_gradient_line Right line
     else line
   in
   let top_border =
-    glyph_corner_tl
+    glyphs.corner_tl
     ^ (List.mapi
          (fun i w ->
-           repeat glyph_hline w
-           ^ if i = col_count - 1 then glyph_corner_tr else glyph_top_sep)
+           repeat glyphs.hline w
+           ^ if i = col_count - 1 then glyphs.corner_tr else glyphs.top_sep)
          col_widths
       |> String.concat "")
   in
   let mid_border =
-    glyph_mid_left
+    glyphs.mid_left
     ^ (List.mapi
          (fun i w ->
-           repeat glyph_hline w
-           ^ if i = col_count - 1 then glyph_mid_right else glyph_mid_sep)
+           repeat glyphs.hline w
+           ^ if i = col_count - 1 then glyphs.mid_right else glyphs.mid_sep)
          col_widths
       |> String.concat "")
   in
   let bottom_border =
-    glyph_corner_bl
+    glyphs.corner_bl
     ^ (List.mapi
          (fun i w ->
-           repeat glyph_hline w
-           ^ if i = col_count - 1 then glyph_corner_br else glyph_bottom_sep)
+           repeat glyphs.hline w
+           ^ if i = col_count - 1 then glyphs.corner_br else glyphs.bottom_sep)
          col_widths
       |> String.concat "")
   in
@@ -165,7 +276,7 @@ let render_table_generic_with_opts ~cols ~header_list ~rows_list ~cursor
         cols_cells
     in
     let line_core =
-      glyph_vline ^ (cells |> String.concat glyph_vline) ^ glyph_vline
+      glyphs.vline ^ (cells |> String.concat glyphs.vline) ^ glyphs.vline
     in
     let line =
       match opts.selection_mode with
@@ -180,11 +291,12 @@ let render_table_generic_with_opts ~cols ~header_list ~rows_list ~cursor
     "\n"
     ((top_border :: header_line :: mid_border :: body) @ [bottom_border])
 
-let render_table_80_with_opts ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col
-    ~opts =
+let render_table_80_with_opts ?backend ~cols ~header:(h1, h2, h3) ~rows ~cursor
+    ~sel_col ~opts () =
   let header_list = [h1; h2; h3] in
   let rows_list = List.map (fun (a, b, c) -> [a; b; c]) rows in
   render_table_generic_with_opts
+    ?backend
     ~cols
     ~header_list
     ~rows_list
@@ -197,14 +309,25 @@ let render_table_80 ~cols ~header ~rows ~cursor ~sel_col =
   let a, b, c = header in
   let header_list = [a; b; c] in
   let rows_list = List.map (fun (x, y, z) -> [x; y; z]) rows in
-  render_table_generic_with_opts
-    ~cols
-    ~header_list
-    ~rows_list
-    ~cursor
-    ~sel_col
-    ~opts:default_opts
-    ()
+  match W.get_backend () with
+  | `Sdl ->
+      render_table_sdl
+        ~cols
+        ~header:(a, b, c)
+        ~rows
+        ~cursor
+        ~sel_col
+        ~opts:default_opts
+  | `Terminal ->
+      render_table_generic_with_opts
+        ~backend:(W.get_backend ())
+        ~cols
+        ~header_list
+        ~rows_list
+        ~cursor
+        ~sel_col
+        ~opts:default_opts
+        ()
 
 module Table = struct
   type 'a column = {header : string; to_string : 'a -> string}

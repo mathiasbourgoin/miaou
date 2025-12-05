@@ -100,6 +100,27 @@ let glyph_mid_right = if Lazy.force use_ascii_borders then "+" else "┤"
 
 let glyph_bottom_sep = if Lazy.force use_ascii_borders then "+" else "┴"
 
+(* Rendering backends: terminal (ANSI/Unicode) vs SDL. The SDL path often
+   benefits from ASCII fallbacks to avoid missing glyphs. *)
+type backend = [ `Terminal | `Sdl ]
+
+let current_backend : backend ref = ref `Terminal
+
+let set_backend b = current_backend := b
+
+let get_backend () = !current_backend
+
+let prefer_ascii ?backend () =
+  let b = match backend with Some b -> b | None -> !current_backend in
+  match b with `Sdl -> true | `Terminal -> Lazy.force use_ascii_borders
+
+(* Backend-aware glyph helpers (ASCII fallback for SDL or env override) *)
+let glyph_up ?backend () = if prefer_ascii ?backend () then "^" else "▲"
+
+let glyph_down ?backend () = if prefer_ascii ?backend () then "v" else "▼"
+
+let glyph_bullet ?backend () = if prefer_ascii ?backend () then "*" else "•"
+
 let hr ~width ?(char = '-') () =
   let ch = String.make 1 char in
   String.concat "" (List.init width (fun _ -> ch))

@@ -8,6 +8,7 @@
 [@@@warning "-32-34-37-69"]
 
 open Tui_page
+module Widgets = Miaou_widgets_display.Widgets
 
 type t = private T
 
@@ -33,15 +34,30 @@ let current_page : (module PAGE_SIG) option ref = ref None
 let set_page (page_module : (module PAGE_SIG)) =
   current_page := Some page_module
 
+let backend_choice () =
+  match Sys.getenv_opt "MIAOU_DRIVER" with
+  | Some v when String.lowercase_ascii (String.trim v) = "sdl" -> (
+      if Sdl_enabled.enabled then `Sdl else `Lambda_term)
+  | _ -> `Lambda_term
+
 let run (initial_page : (module PAGE_SIG)) : outcome =
-  (* Delegate to the real interactive driver (lambda_term_driver). We keep a
-     tail‑recursive loop to follow `SwitchTo` signals until a final `Quit`. *)
+  Widgets.set_backend `Terminal ;
+  (* Delegate to the requested backend driver. We keep a tail‑recursive loop to
+     follow `SwitchTo` signals until a final `Quit`. *)
   let rec loop (page : (module PAGE_SIG)) : outcome =
-    match Lambda_term_driver.run page with
+    let outcome =
+      match backend_choice () with
+      | `Sdl ->
+          Widgets.set_backend `Sdl ;
+          Sdl_driver.run page
+      | `Lambda_term ->
+          Widgets.set_backend `Terminal ;
+          Lambda_term_driver.run page
+    in
+    match outcome with
     | `Quit -> `Quit
     | `SwitchTo "__BACK__" -> `Quit (* demo/back semantics: exit demo *)
     | `SwitchTo next -> (
-        (* Look up the next page in the registry; if absent, quit gracefully. *)
         match Registry.find next with
         | Some p -> loop p
         | None -> `Quit)

@@ -16,6 +16,8 @@
   cohttp-lwt-unix
   lambda-term
   lwt
+  tsdl
+  tsdl-ttf
   rresult
   uri
   yojson

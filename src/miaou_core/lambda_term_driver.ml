@@ -30,6 +30,8 @@ let clear () =
 
 let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
   let run_with_page (module Page : PAGE_SIG) =
+    (* Ensure widgets render with terminal-friendly glyphs when using the lambda-term backend. *)
+    Miaou_widgets_display.Widgets.set_backend `Terminal ;
     let fd = Unix.descr_of_in_channel stdin in
 
     if not (try Unix.isatty fd with _ -> false) then
@@ -804,7 +806,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           in
           if key <> "" then (
             if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-            loop st key_stack)
+            let st' = handle_key_like st key key_stack in
+            match Page.next_page st' with
+            | Some page -> `SwitchTo page
+            | None ->
+                clear_and_render st' key_stack ;
+                loop st' key_stack)
           else if Modal_manager.has_active () then
             if is_narrow_modal_active () then (
               Modal_manager.close_top `Cancel ;

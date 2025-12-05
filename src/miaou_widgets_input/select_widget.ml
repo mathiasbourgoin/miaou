@@ -79,7 +79,10 @@ let handle_key_inner w ~key =
   | "Esc" -> {w with cancelled = true}
   | _ -> w
 
-let render_inner w ~focus:_ ~(size : LTerm_geom.size) =
+let render_inner
+    ?(backend : Miaou_widgets_display.Widgets.backend =
+      Miaou_widgets_display.Widgets.get_backend ())
+    w ~focus:_ ~(size : LTerm_geom.size) =
   let open Miaou_widgets_display.Widgets in
   let total = List.length w.items in
   (* Available vertical space after reserving header + footer lines. *)
@@ -129,9 +132,12 @@ let render_inner w ~focus:_ ~(size : LTerm_geom.size) =
         if i = w.cursor then bg 24 (fg 15 lbl) else lbl)
       slice
   in
-  let top_indicator = if start > 0 then [dim "▲ more"] else [] in
+  let top_indicator =
+    if start > 0 then [dim (glyph_up ~backend () ^ " more")] else []
+  in
   let bottom_indicator =
-    if start + max_shown < total then [dim "▼ more"] else []
+    if start + max_shown < total then [dim (glyph_down ~backend () ^ " more")]
+    else []
   in
   let range_hint =
     if show_all then []
@@ -145,11 +151,17 @@ let render_inner w ~focus:_ ~(size : LTerm_geom.size) =
              total);
       ]
   in
+  let up = glyph_up ~backend () in
+  let down = glyph_down ~backend () in
   let header =
     [
       w.title;
       dim
-        "↑/↓ move · PgUp/PgDn page · Home/End jump · Enter confirm · Esc cancel";
+        (Printf.sprintf
+           "%s/%s move · PgUp/PgDn page · Home/End jump · Enter confirm · Esc \
+            cancel"
+           up
+           down);
     ]
   in
   String.concat
@@ -184,7 +196,10 @@ let open_centered_sectioned ?cursor_label ?max_visible ~title ~sections
   {title; items; to_string; inner; max_visible}
 
 (* Size-aware rendering API. New callers may use [render_with_size]. *)
-let render_with_size (w : 'a t) ~focus ~(size : LTerm_geom.size) =
+let render_with_size
+    ?(backend : Miaou_widgets_display.Widgets.backend =
+      Miaou_widgets_display.Widgets.get_backend ())
+    (w : 'a t) ~focus ~(size : LTerm_geom.size) =
   let size =
     match w.max_visible with
     | None -> size
@@ -197,13 +212,18 @@ let render_with_size (w : 'a t) ~focus ~(size : LTerm_geom.size) =
         in
         {size with rows}
   in
-  render_inner w.inner ~focus ~size
+  render_inner ~backend w.inner ~focus ~size
 
 (* Backwards-compatible [render] which uses a sensible default terminal size
 	 when no size is provided by the caller. *)
-let render (w : 'a t) ~focus =
+let render_for_backend backend (w : 'a t) ~focus =
   let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
-  render_inner w.inner ~focus ~size:default_size
+  render_inner ~backend w.inner ~focus ~size:default_size
+
+let render ?(backend : Miaou_widgets_display.Widgets.backend =
+      Miaou_widgets_display.Widgets.get_backend ())
+    (w : 'a t) ~focus =
+  render_for_backend backend w ~focus
 
 let handle_key_with_size (w : 'a t) ~key ~size:_ : 'a t =
   (* handle_key_inner is size-agnostic currently; keep behaviour identical

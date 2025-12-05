@@ -31,7 +31,7 @@ Features at a glance
 Backends
 --------
 
-MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later.
+MIAOU currently relies on λ-term as its primary backend. It exposes a small driver/backend interface so alternative low-level backends can be plugged in later. An experimental SDL2 backend (Tsdl + Tsdl_ttf) is available by setting `MIAOU_DRIVER=sdl` (or by invoking `Miaou.Core.Sdl_driver.run` directly). Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if detection fails.
 
 Quick start — build & depend
 ----------------------------
@@ -188,6 +188,8 @@ Debugging & environment variables
 - `MIAOU_TUI_DEBUG_MODAL=1` — verbose modal-manager logging (also honored by `Miaou_internals.Modal_renderer`).
 - `MIAOU_TUI_UNICODE_BORDERS=false` — force ASCII borders if your terminal font lacks box-drawing glyphs.
 - `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development.
+- `MIAOU_DRIVER=sdl` — switch to the experimental SDL2 backend (requires `tsdl` + `tsdl-ttf`).
+- `MIAOU_SDL_FONT` / `MIAOU_SDL_FONT_SIZE` / `MIAOU_SDL_WINDOW_TITLE` — font + size + title overrides for the SDL driver.
 - `MIAOU_DEBUG_KEYSTROKE_CAPTURE` / `MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH` — capture keystrokes to JSONL (see *Recording & replay*).
 - `MIAOU_DEBUG_FRAME_CAPTURE` / `MIAOU_DEBUG_FRAME_CAPTURE_PATH` — capture rendered frames.
 - `MIAOU_DEBUG_CAPTURE_DIR` — default directory for the capture files when explicit paths are not provided.

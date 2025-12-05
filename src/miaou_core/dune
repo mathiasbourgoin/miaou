@@ -13,6 +13,8 @@
   quit_flag
   registry
   lambda_term_driver
+  sdl_driver
+  sdl_enabled
   tui_driver
   tui_capture
   tui_logger
@@ -34,4 +36,6 @@
   miaou.widgets.layout
   miaou.widgets.display
   miaou.helpers
-  miaou.interfaces))
+  miaou.interfaces
+  tsdl
+  tsdl-ttf))
