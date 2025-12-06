@@ -1,5 +1,4 @@
 open Alcotest
-
 module Flash = Lib_miaou_internal.Flash_bus
 module Headless = Lib_miaou_internal.Headless_driver
 

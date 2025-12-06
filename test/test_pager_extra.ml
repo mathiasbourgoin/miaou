@@ -1,5 +1,4 @@
 open Alcotest
-
 module Pager = Miaou_widgets_display.Pager_widget
 
 let test_json_streamer () =
@@ -7,7 +6,11 @@ let test_json_streamer () =
   let lines1 = Pager.json_streamer_feed st "{\"a\":1," in
   let lines2 = Pager.json_streamer_feed st "\"b\":true}" in
   let combined = lines1 @ lines2 in
-  check bool "produces colored output" true (List.exists (fun l -> String.contains l 'a') combined)
+  check
+    bool
+    "produces colored output"
+    true
+    (List.exists (fun l -> String.contains l 'a') combined)
 
 let test_pending_flush () =
   let p = Pager.open_lines ~title:"t" [] in

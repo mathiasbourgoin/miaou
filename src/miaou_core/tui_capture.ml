@@ -135,15 +135,15 @@ let record_keystroke key =
           ~path_env:"MIAOU_DEBUG_KEYSTROKE_CAPTURE_PATH")
   with
   | None -> ()
-  | Some w ->
-      (try
-         fprintf
-           w.oc
-           "{\"timestamp\": %.6f, \"key\": %S}\n"
-           (Unix.gettimeofday ())
-           key ;
-         flush w.oc
-       with _ -> ())
+  | Some w -> (
+      try
+        fprintf
+          w.oc
+          "{\"timestamp\": %.6f, \"key\": %S}\n"
+          (Unix.gettimeofday ())
+          key ;
+        flush w.oc
+      with _ -> ())
 
 let record_frame ~rows ~cols frame =
   match
@@ -154,18 +154,18 @@ let record_frame ~rows ~cols frame =
           ~path_env:"MIAOU_DEBUG_FRAME_CAPTURE_PATH")
   with
   | None -> ()
-  | Some w ->
-      (try
-         fprintf
-           w.oc
-           "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
-            \"frame\": %S}\n"
-           (Unix.gettimeofday ())
-           rows
-           cols
-           frame ;
-         flush w.oc
-       with _ -> ())
+  | Some w -> (
+      try
+        fprintf
+          w.oc
+          "{\"timestamp\": %.6f, \"size\": {\"rows\": %d, \"cols\": %d}, \
+           \"frame\": %S}\n"
+          (Unix.gettimeofday ())
+          rows
+          cols
+          frame ;
+        flush w.oc
+      with _ -> ())
 
 let reset_for_tests () =
   close_writer_opt keystroke_writer ;

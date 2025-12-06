@@ -7,6 +7,9 @@ let run page =
     }
   in
   let sdl_backend =
-    {Miaou_runner_common.Tui_driver_common.available = false; run = (fun _ -> `Quit)}
+    {
+      Miaou_runner_common.Tui_driver_common.available = false;
+      run = (fun _ -> `Quit);
+    }
   in
   Miaou_runner_common.Tui_driver_common.run ~term_backend ~sdl_backend page

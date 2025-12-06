@@ -23,10 +23,7 @@ let with_body t body = {t with body}
 let render t ~cols =
   let title =
     match t.title with
-    | Some s -> (
-        match t.accent with
-        | Some c -> W.fg c (W.bold s)
-        | None -> s)
+    | Some s -> ( match t.accent with Some c -> W.fg c (W.bold s) | None -> s)
     | None -> ""
   in
   let footer = match t.footer with Some f -> f | None -> "" in

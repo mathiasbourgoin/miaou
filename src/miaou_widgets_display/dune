@@ -2,13 +2,14 @@
  (name miaou_widgets_display)
  (public_name miaou.widgets.display)
  (modules
- pager_widget
- table_widget
- table_widget_sdl
- tree_widget
- description_list
- widgets
- palette
- palette_sdl)
- (instrumentation (backend bisect_ppx))
+  pager_widget
+  table_widget
+  table_widget_sdl
+  tree_widget
+  description_list
+  widgets
+  palette
+  palette_sdl)
+ (instrumentation
+  (backend bisect_ppx))
  (libraries yojson str miaou.helpers miaou.interfaces))

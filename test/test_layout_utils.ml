@@ -1,12 +1,15 @@
 open Alcotest
-
 module List_nav = Miaou_widgets_layout.List_nav
 module Pane_layout = Miaou_widgets_layout.Pane_layout
 
 let test_list_nav () =
   check int "move down" 2 (List_nav.move_cursor ~total:5 ~cursor:1 ~delta:1) ;
   check int "clamp upper" 4 (List_nav.move_cursor ~total:5 ~cursor:4 ~delta:5) ;
-  check int "page up" 1 (List_nav.page_move ~total:10 ~cursor:5 ~page_size:4 ~dir:`Up)
+  check
+    int
+    "page up"
+    1
+    (List_nav.page_move ~total:10 ~cursor:5 ~page_size:4 ~dir:`Up)
 
 let test_pane_layout () =
   let layout =

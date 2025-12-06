@@ -81,8 +81,8 @@ let handle_key_inner w ~key =
 
 let render_inner
     ?(backend : Miaou_widgets_display.Widgets.backend =
-      Miaou_widgets_display.Widgets.get_backend ())
-    w ~focus:_ ~(size : LTerm_geom.size) =
+      Miaou_widgets_display.Widgets.get_backend ()) w ~focus:_
+    ~(size : LTerm_geom.size) =
   let open Miaou_widgets_display.Widgets in
   let total = List.length w.items in
   (* Available vertical space after reserving header + footer lines. *)
@@ -198,8 +198,8 @@ let open_centered_sectioned ?cursor_label ?max_visible ~title ~sections
 (* Size-aware rendering API. New callers may use [render_with_size]. *)
 let render_with_size
     ?(backend : Miaou_widgets_display.Widgets.backend =
-      Miaou_widgets_display.Widgets.get_backend ())
-    (w : 'a t) ~focus ~(size : LTerm_geom.size) =
+      Miaou_widgets_display.Widgets.get_backend ()) (w : 'a t) ~focus
+    ~(size : LTerm_geom.size) =
   let size =
     match w.max_visible with
     | None -> size
@@ -220,9 +220,9 @@ let render_for_backend backend (w : 'a t) ~focus =
   let default_size : LTerm_geom.size = {rows = 24; cols = 80} in
   render_inner ~backend w.inner ~focus ~size:default_size
 
-let render ?(backend : Miaou_widgets_display.Widgets.backend =
-      Miaou_widgets_display.Widgets.get_backend ())
-    (w : 'a t) ~focus =
+let render
+    ?(backend : Miaou_widgets_display.Widgets.backend =
+      Miaou_widgets_display.Widgets.get_backend ()) (w : 'a t) ~focus =
   render_for_backend backend w ~focus
 
 let handle_key_with_size (w : 'a t) ~key ~size:_ : 'a t =

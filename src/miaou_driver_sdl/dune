@@ -2,7 +2,8 @@
  (name miaou_driver_sdl)
  (public_name miaou.driver.sdl)
  (modules sdl_enabled sdl_driver)
- (instrumentation (backend bisect_ppx))
+ (instrumentation
+  (backend bisect_ppx))
  (libraries
   miaou.core
   miaou.helpers

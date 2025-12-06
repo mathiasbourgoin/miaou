@@ -4,4 +4,5 @@
  (name miaou_interfaces)
  (public_name miaou.interfaces)
  (modules (:standard))
- (instrumentation (backend bisect_ppx)))
+ (instrumentation
+  (backend bisect_ppx)))

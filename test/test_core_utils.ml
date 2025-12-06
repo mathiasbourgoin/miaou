@@ -1,5 +1,4 @@
 open Alcotest
-
 module HH = Miaou_core.Help_hint
 module QF = Miaou_core.Quit_flag
 module Reg = Miaou_core.Registry
@@ -13,18 +12,31 @@ module Dummy_page = struct
   type msg = unit
 
   let init () = ()
+
   let update st _ = st
+
   let view _ ~focus:_ ~size:_ = "page"
+
   let move st _ = st
+
   let refresh st = st
+
   let enter st = st
+
   let service_select st _ = st
+
   let service_cycle st _ = st
+
   let back st = st
+
   let keymap _ = []
+
   let handle_modal_key st _ ~size:_ = st
+
   let handle_key st _ ~size:_ = st
+
   let next_page _ = None
+
   let has_modal _ = false
 end
 
@@ -45,7 +57,9 @@ let test_quit_flag () =
 
 let test_registry () =
   Reg.unregister "p" ;
-  let added = Reg.register_once "p" (module Dummy_page : Miaou_core.Tui_page.PAGE_SIG) in
+  let added =
+    Reg.register_once "p" (module Dummy_page : Miaou_core.Tui_page.PAGE_SIG)
+  in
   check bool "added" true added ;
   check bool "exists" true (Reg.exists "p") ;
   Reg.register_lazy "lazy" (fun () -> (module Dummy_page)) ;
@@ -54,7 +68,11 @@ let test_registry () =
   Reg.unregister "lazy" ;
   check bool "find" true (Reg.find "p" |> Option.is_some) ;
   check bool "list names" true (List.mem "p" (Reg.list_names ())) ;
-  check bool "list entries" true (List.exists (fun (n, _) -> n = "p") (Reg.list ()))
+  check
+    bool
+    "list entries"
+    true
+    (List.exists (fun (n, _) -> n = "p") (Reg.list ()))
 
 let test_key_handler_stack () =
   let called = ref false in
@@ -75,7 +93,11 @@ let test_key_handler_listing () =
   let keys = KHS.top_keys st in
   check bool "top has y" true (List.mem "y" keys) ;
   let bindings = KHS.top_bindings st in
-  check bool "top bindings include hy" true (List.exists (fun (k, h) -> k = "y" && h = "hy") bindings) ;
+  check
+    bool
+    "top bindings include hy"
+    true
+    (List.exists (fun (k, h) -> k = "y" && h = "hy") bindings) ;
   let all = KHS.all_bindings st in
   check bool "all include x" true (List.exists (fun (k, _) -> k = "x") all)
 
@@ -106,7 +128,8 @@ let test_logger_capability () =
   let logger =
     {
       LogCap.logf = (fun lvl msg -> calls := (lvl, msg) :: !calls);
-      set_enabled = (fun flag -> calls := (LogCap.Info, string_of_bool flag) :: !calls);
+      set_enabled =
+        (fun flag -> calls := (LogCap.Info, string_of_bool flag) :: !calls);
       set_logfile =
         (fun f ->
           calls := (LogCap.Info, Option.value ~default:"none" f) :: !calls ;
@@ -135,25 +158,33 @@ let () =
           test_case "narrow modal page" `Quick (fun () ->
               let msg = Narrow.init () in
               let rendered =
-                Narrow.view msg ~focus:true ~size:{LTerm_geom.rows = 10; cols = 40}
+                Narrow.view
+                  msg
+                  ~focus:true
+                  ~size:{LTerm_geom.rows = 10; cols = 40}
               in
               let dummy_msg : Narrow.msg = Obj.magic () in
               let advanced =
-                msg
-                |> fun s -> Narrow.handle_key s "x" ~size:{LTerm_geom.rows = 10; cols = 40}
+                msg |> fun s ->
+                Narrow.handle_key s "x" ~size:{LTerm_geom.rows = 10; cols = 40}
                 |> fun s ->
-                Narrow.handle_modal_key s "esc" ~size:{LTerm_geom.rows = 5; cols = 20}
-                |> fun s -> Narrow.update s dummy_msg
-                |> fun s -> Narrow.move s 1
-                |> Narrow.refresh
-                |> fun s -> Narrow.service_select s 0
-                |> fun s -> Narrow.service_cycle s 1
-                |> Narrow.enter
-                |> Narrow.back
+                Narrow.handle_modal_key
+                  s
+                  "esc"
+                  ~size:{LTerm_geom.rows = 5; cols = 20}
+                |> fun s ->
+                Narrow.update s dummy_msg |> fun s ->
+                Narrow.move s 1 |> Narrow.refresh |> fun s ->
+                Narrow.service_select s 0 |> fun s ->
+                Narrow.service_cycle s 1 |> Narrow.enter |> Narrow.back
               in
               check bool "contains text" true (String.length rendered > 0) ;
               check bool "no modal" false (Narrow.has_modal advanced) ;
-              check bool "no next page" true (Option.is_none (Narrow.next_page msg)) ;
+              check
+                bool
+                "no next page"
+                true
+                (Option.is_none (Narrow.next_page msg)) ;
               check int "empty keymap" 0 (List.length (Narrow.keymap msg)));
           test_case "capabilities" `Quick test_capabilities;
           test_case "logger capability" `Quick test_logger_capability;

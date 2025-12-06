@@ -25,7 +25,7 @@ let with_sidebar t sidebar = {t with sidebar}
 
 let render t ~cols =
   let min_cols_for_split = 40 in
-  if not t.sidebar_open || cols < min_cols_for_split then t.main
+  if (not t.sidebar_open) || cols < min_cols_for_split then t.main
   else
     let left_width =
       match t.sidebar_width with

@@ -14,7 +14,7 @@ module Registry = Miaou_core.Registry
 (* Local alias for outcome to ensure compilation when mli changes are applied *)
 type outcome = [`Quit | `SwitchTo of string]
 
-type backend = {available: bool; run: (module PAGE_SIG) -> outcome}
+type backend = {available : bool; run : (module PAGE_SIG) -> outcome}
 
 type t = private T
 
@@ -46,7 +46,8 @@ let backend_choice ~sdl_available =
       | _ -> `Lambda_term)
   | None -> if sdl_available then `Sdl else `Lambda_term
 
-let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome =
+let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome
+    =
   Widgets.set_backend `Terminal ;
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
@@ -65,9 +66,7 @@ let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome 
     | `Quit -> `Quit
     | `SwitchTo "__BACK__" -> `Quit
     | `SwitchTo next -> (
-        match Registry.find next with
-        | Some p -> loop p
-        | None -> `Quit)
+        match Registry.find next with Some p -> loop p | None -> `Quit)
   in
   loop initial_page
 

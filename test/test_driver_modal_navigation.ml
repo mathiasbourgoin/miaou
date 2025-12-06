@@ -66,13 +66,12 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
     Miaou_core.Modal_manager.push
       (module Consuming_modal)
       ~init:(Consuming_modal.init ())
-      ~ui:{title = "test"; left = None; max_width = None; dim_background = false}
+      ~ui:
+        {title = "test"; left = None; max_width = None; dim_background = false}
       ~commit_on:[]
       ~cancel_on:[]
       ~on_close:(fun _ outcome ->
-        match outcome with
-        | `Commit -> nav := Some "NEXT"
-        | _ -> ())
+        match outcome with `Commit -> nav := Some "NEXT" | _ -> ())
 
   let init () =
     Miaou_core.Modal_manager.clear () ;
@@ -125,8 +124,8 @@ let test_modal_consumes_enter_triggers_navigation () =
   in
   check
     (Alcotest.of_pp (fun fmt -> function
-       | `Quit -> Format.fprintf fmt "Quit"
-       | `SwitchTo s -> Format.fprintf fmt "SwitchTo %s" s))
+      | `Quit -> Format.fprintf fmt "Quit"
+      | `SwitchTo s -> Format.fprintf fmt "SwitchTo %s" s))
     "navigation triggered"
     (`SwitchTo "NEXT")
     res
@@ -136,6 +135,10 @@ let () =
     "driver_modal_navigation"
     [
       ( "modal_navigation",
-        [test_case "enter closes modal and navigates" `Quick
-           test_modal_consumes_enter_triggers_navigation] );
+        [
+          test_case
+            "enter closes modal and navigates"
+            `Quick
+            test_modal_consumes_enter_triggers_navigation;
+        ] );
     ]

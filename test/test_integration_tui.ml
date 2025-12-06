@@ -1,5 +1,4 @@
 open Alcotest
-
 module Table = Miaou_widgets_display.Table_widget
 module Modal_manager = Miaou_core.Modal_manager
 module Headless = Lib_miaou_internal.Headless_driver
@@ -19,7 +18,11 @@ module Page : Miaou_core.Tui_page.PAGE_SIG = struct
     let rows =
       [("Alpha", "ok", "1"); ("Beta", "warn", "2"); ("Gamma", "ok", "3")]
     in
-    Table.render_table_80 ~cols:(Some size.cols) ~header ~rows ~cursor:st
+    Table.render_table_80
+      ~cols:(Some size.cols)
+      ~header
+      ~rows
+      ~cursor:st
       ~sel_col:0
 
   let move st delta = st + delta
@@ -66,4 +69,12 @@ let test_headless_page_with_modal () =
 let () =
   run
     "integration_tui"
-    [("integration_tui", [test_case "headless page with modal" `Quick test_headless_page_with_modal])]
+    [
+      ( "integration_tui",
+        [
+          test_case
+            "headless page with modal"
+            `Quick
+            test_headless_page_with_modal;
+        ] );
+    ]

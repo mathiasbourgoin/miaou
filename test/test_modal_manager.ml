@@ -1,5 +1,4 @@
 open Alcotest
-
 module MM = Miaou_core.Modal_manager
 
 module Modal_page = struct
@@ -47,7 +46,8 @@ let test_push_commit_cancel () =
     ~ui:{title = "t"; left = None; max_width = None; dim_background = true}
     ~commit_on:["ok"]
     ~cancel_on:["Esc"]
-    ~on_close:(fun _ -> function `Commit -> commit_called := true | `Cancel -> cancel_called := true) ;
+    ~on_close:(fun _ -> function
+      | `Commit -> commit_called := true | `Cancel -> cancel_called := true) ;
   check bool "has active" true (MM.has_active ()) ;
   MM.handle_key "inc" ;
   MM.handle_key "ok" ;
@@ -56,7 +56,8 @@ let test_push_commit_cancel () =
     (module Modal_page)
     ~init:(Modal_page.init ())
     ~ui:{title = "t2"; left = None; max_width = None; dim_background = true}
-    ~on_close:(fun _ -> function `Commit -> () | `Cancel -> cancel_called := true) ;
+    ~on_close:(fun _ -> function
+      | `Commit -> () | `Cancel -> cancel_called := true) ;
   MM.handle_key "Esc" ;
   check bool "cancel called" true !cancel_called ;
   check bool "cleared" false (MM.has_active ()) ;
@@ -79,8 +80,8 @@ let test_convenience () =
     ~extract:(fun st -> Some st)
     ~on_result:(fun v ->
       results :=
-        ("confirm_extract", Option.value ~default:"none"
-                               (Option.map string_of_int v))
+        ( "confirm_extract",
+          Option.value ~default:"none" (Option.map string_of_int v) )
         :: !results)
     () ;
   MM.handle_key "inc" ;
@@ -91,8 +92,7 @@ let test_convenience () =
     ~extract:(fun st -> Some (st + 10))
     ~on_result:(fun v ->
       results :=
-        ("prompt", Option.value ~default:"none"
-                     (Option.map string_of_int v))
+        ("prompt", Option.value ~default:"none" (Option.map string_of_int v))
         :: !results)
     () ;
   MM.handle_key "Enter" ;

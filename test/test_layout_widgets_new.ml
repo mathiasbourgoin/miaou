@@ -31,7 +31,9 @@ let test_sidebar_toggle () =
       ~sidebar_open:true
       ()
   in
-  let open_render = Miaou_widgets_layout.Sidebar_widget.render layout ~cols:80 in
+  let open_render =
+    Miaou_widgets_layout.Sidebar_widget.render layout ~cols:80
+  in
   check bool "sidebar visible" true (contains_sub open_render "NAV") ;
   let closed =
     layout |> Miaou_widgets_layout.Sidebar_widget.toggle |> fun t ->
@@ -45,6 +47,8 @@ let () =
     "layout_widgets_new"
     [
       ( "layout_widgets_new",
-        [ test_case "card render" `Quick test_card_render;
-          test_case "sidebar toggle" `Quick test_sidebar_toggle ] );
+        [
+          test_case "card render" `Quick test_card_render;
+          test_case "sidebar toggle" `Quick test_sidebar_toggle;
+        ] );
     ]

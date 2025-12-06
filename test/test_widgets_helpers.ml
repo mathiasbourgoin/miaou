@@ -1,5 +1,4 @@
 open Alcotest
-
 module W = Miaou_widgets_display.Widgets
 module Palette_sdl = Miaou_widgets_display.Palette_sdl
 
@@ -53,13 +52,19 @@ let test_palette_adapter () =
       purple_gradient = mk "grad";
       purple_gradient_at =
         (fun dir ~total_visible ~start_pos s ->
-          mk "grad_at"
-            (Printf.sprintf "%d:%d:%s" total_visible start_pos
+          mk
+            "grad_at"
+            (Printf.sprintf
+               "%d:%d:%s"
+               total_visible
+               start_pos
                (match dir with Up -> "u" | Right -> "r" | DownRight -> "dr")
             ^ ":" ^ s));
       purple_gradient_line =
         (fun dir s ->
-          let dir_s = match dir with Up -> "u" | Right -> "r" | DownRight -> "dr" in
+          let dir_s =
+            match dir with Up -> "u" | Right -> "r" | DownRight -> "dr"
+          in
           mk "grad_line" (dir_s ^ ":" ^ s));
       fg_success = mk "fgsuc";
       fg_error = mk "fger";

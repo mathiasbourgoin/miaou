@@ -1,5 +1,4 @@
 open Alcotest
-
 module Headless = Lib_miaou_internal.Headless_driver
 module Flash = Lib_miaou_internal.Flash_bus
 open LTerm_geom
@@ -10,18 +9,32 @@ module Dummy = struct
   type msg = unit
 
   let init () = 1
+
   let update st _ = st
-  let view st ~focus:_ ~size = Printf.sprintf "st=%d %dx%d" st size.rows size.cols
+
+  let view st ~focus:_ ~size =
+    Printf.sprintf "st=%d %dx%d" st size.rows size.cols
+
   let move st _ = st
+
   let refresh st = st
+
   let enter st = st
+
   let service_select st _ = st
+
   let service_cycle st _ = st
+
   let back st = st
+
   let keymap _ = []
+
   let handle_modal_key st _ ~size:_ = st
+
   let handle_key st _ ~size:_ = st
+
   let next_page _ = None
+
   let has_modal _ = false
 end
 
@@ -40,4 +53,6 @@ let test_size_and_keys () =
   check bool "flash appended" true (String.contains content 'w')
 
 let () =
-  run "headless_more" [("headless_more", [test_case "size and keys" `Quick test_size_and_keys])]
+  run
+    "headless_more"
+    [("headless_more", [test_case "size and keys" `Quick test_size_and_keys])]

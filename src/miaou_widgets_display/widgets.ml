@@ -102,7 +102,7 @@ let glyph_bottom_sep = if Lazy.force use_ascii_borders then "+" else "┴"
 
 (* Rendering backends: terminal (ANSI/Unicode) vs SDL. The SDL path often
    benefits from ASCII fallbacks to avoid missing glyphs. *)
-type backend = [ `Terminal | `Sdl ]
+type backend = [`Terminal | `Sdl]
 
 let current_backend : backend ref = ref `Terminal
 

@@ -39,7 +39,7 @@ let rgb_of_code code =
   else if code >= 16 && code < 232 then
     let idx = code - 16 in
     let r = idx / 36 in
-    let g = (idx / 6) mod 6 in
+    let g = idx / 6 mod 6 in
     let b = idx mod 6 in
     let to_int c = if c = 0 then 0 else 55 + (c * 40) in
     (to_int r, to_int g, to_int b)

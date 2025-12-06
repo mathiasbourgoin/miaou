@@ -101,8 +101,12 @@ let render_terminal w ~cols:_ =
 let render w ~cols =
   match Miaou_widgets_display.Widgets.get_backend () with
   | `Sdl ->
-      Progress_widget_sdl.render ~width:w.width ~progress:w.progress
-        ~label:w.label ~title:w.title ~cols
+      Progress_widget_sdl.render
+        ~width:w.width
+        ~progress:w.progress
+        ~label:w.label
+        ~title:w.title
+        ~cols
   | `Terminal -> render_terminal w ~cols
 
 let handle_key w ~key:_ = w

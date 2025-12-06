@@ -19,8 +19,7 @@ let frames_ascii = [|"|"; "/"; "-"; "\\"|]
 
 let render_with_backend backend t =
   let frames =
-    if Miaou_widgets_display.Widgets.prefer_ascii ~backend () then
-      frames_ascii
+    if Miaou_widgets_display.Widgets.prefer_ascii ~backend () then frames_ascii
     else frames_unicode
   in
   let frame_count = Array.length frames in
@@ -33,7 +32,7 @@ let render_with_backend backend t =
     let idx = Miaou_helpers.Helpers.visible_byte_index_of_pos content t.width in
     String.sub content 0 idx
 
-let render ?(backend : Miaou_widgets_display.Widgets.backend =
-      Miaou_widgets_display.Widgets.get_backend ())
-    t =
+let render
+    ?(backend : Miaou_widgets_display.Widgets.backend =
+      Miaou_widgets_display.Widgets.get_backend ()) t =
   render_with_backend backend t

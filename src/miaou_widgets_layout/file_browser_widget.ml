@@ -63,7 +63,8 @@ let rec normalize_start p =
       if parent = p then "/" else normalize_start parent
   with _ -> "/"
 
-let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true) () =
+let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
+    () =
   let start = normalize_start path in
   {
     current_path = start;

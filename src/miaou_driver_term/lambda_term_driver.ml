@@ -5,6 +5,7 @@
 (*                                                                           *)
 (*****************************************************************************)
 [@@@warning "-32-34-37-69"]
+
 [@@@coverage off]
 
 module Logger_capability = Miaou_interfaces.Logger_capability
@@ -55,9 +56,9 @@ let run_with_key_source_for_tests ~read_key (module Page : PAGE_SIG) :
   let rec loop st =
     match (read_key () : driver_key) with
     | Quit -> `Quit
-    | Refresh ->
+    | Refresh -> (
         let st' = Page.service_cycle st 0 in
-        (match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
+        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
     | Enter -> (
         if Modal_manager.has_active () then (
           Modal_manager.handle_key "Enter" ;
@@ -78,15 +79,17 @@ let run_with_key_source_for_tests ~read_key (module Page : PAGE_SIG) :
         else
           match Page.next_page st with
           | Some p -> `SwitchTo p
-          | None ->
+          | None -> (
               let st' = Page.enter st in
-              (match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st'))
+              match Page.next_page st' with
+              | Some p -> `SwitchTo p
+              | None -> loop st'))
     | Up | Down | Left | Right | NextPage | PrevPage ->
         (* For test purposes, treat navigation keys as no-ops. *)
         loop st
-    | Other key ->
+    | Other key -> (
         let st' = Page.handle_key st key ~size:default_size in
-        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st'
+        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
   in
   Modal_manager.clear () ;
   let st0 = Page.init () in
@@ -802,11 +805,11 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           Stdlib.flush stderr ;
           clear_and_render st key_stack ;
           loop st key_stack
-      | `Refresh ->
+      | `Refresh -> (
           (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
           if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
           let st' = Page.service_cycle st 0 in
-          (match Page.next_page st' with
+          match Page.next_page st' with
           | Some page -> `SwitchTo page
           | None ->
               clear_and_render st' key_stack ;

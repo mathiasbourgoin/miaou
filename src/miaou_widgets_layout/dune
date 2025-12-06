@@ -3,17 +3,19 @@
  (public_name miaou.widgets.layout)
  (modules
   pane
- pane_layout
- vsection
- list_nav
- progress_widget
- progress_widget_sdl
- spinner_widget
- spinner_widget_sdl
- file_browser_widget
- card_widget
- sidebar_widget)
- (instrumentation (backend bisect_ppx))
+  pane_layout
+  vsection
+  list_nav
+  progress_widget
+  progress_widget_sdl
+  spinner_widget
+  spinner_widget_sdl
+  file_browser_widget
+  card_widget
+  sidebar_widget
+  toast_widget)
+ (instrumentation
+  (backend bisect_ppx))
  (libraries
   miaou.widgets.display
   miaou.widgets.input

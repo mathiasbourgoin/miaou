@@ -54,12 +54,12 @@ let find_page name =
         (Printf.sprintf
            "Miaou runner: page \"%s\" not found; falling back to placeholder."
            name) ;
-      Registry.register_once "miaou.runner.placeholder"
+      Registry.register_once
+        "miaou.runner.placeholder"
         (module Placeholder_page : Tui_page.PAGE_SIG)
       |> ignore ;
       Registry.find "miaou.runner.placeholder"
-      |> Option.value
-           ~default:(module Placeholder_page : Tui_page.PAGE_SIG)
+      |> Option.value ~default:(module Placeholder_page : Tui_page.PAGE_SIG)
 
 let pick_page ~argv:_ =
   let page = ref None in
@@ -67,8 +67,7 @@ let pick_page ~argv:_ =
     [
       ( "--page",
         Arg.String (fun s -> page := Some s),
-        "Name of the registered TUI page to start (default: env or \"main\")"
-      );
+        "Name of the registered TUI page to start (default: env or \"main\")" );
     ]
   in
   Arg.parse specs (fun _ -> ()) "Miaou runner options:" ;

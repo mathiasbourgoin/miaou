@@ -1,10 +1,11 @@
 open Alcotest
-
 module FB = Miaou_widgets_layout.File_browser_widget
 
 let stub_system =
   let open Miaou_interfaces in
-  let run_command ~argv:_ ~cwd:_ = Ok System.{exit_code = 0; stdout = ""; stderr = ""} in
+  let run_command ~argv:_ ~cwd:_ =
+    Ok System.{exit_code = 0; stdout = ""; stderr = ""}
+  in
   System.
     {
       file_exists = (fun _ -> true);
@@ -52,9 +53,10 @@ let test_browsing_and_edit () =
   let w2 = FB.handle_key w2 ~key:"Enter" in
   check bool "path error set" true (Option.is_some w2.FB.path_error) ;
   let w2 = FB.handle_key w2 ~key:"Up" in
-  ignore w2
-  ;
-  let stub_missing = {stub_system with Miaou_interfaces.System.file_exists = (fun _ -> false)} in
+  ignore w2 ;
+  let stub_missing =
+    {stub_system with Miaou_interfaces.System.file_exists = (fun _ -> false)}
+  in
   Miaou_interfaces.System.set stub_missing ;
   let w2 = FB.open_centered ~path:"/tmp" ~dirs_only:false () in
   let tb2 = FB.textbox_create ~initial:"/tmp/missing" () in

@@ -1,5 +1,4 @@
 open Alcotest
-
 module TB = Miaou_widgets_input.Textbox_widget
 
 let test_editing () =
@@ -24,4 +23,7 @@ let test_editing () =
   let tb = TB.with_width tb 3 in
   check int "width clamp" 4 (TB.width tb)
 
-let () = run "textbox_more" [("textbox_more", [test_case "editing" `Quick test_editing])]
+let () =
+  run
+    "textbox_more"
+    [("textbox_more", [test_case "editing" `Quick test_editing])]

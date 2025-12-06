@@ -157,13 +157,15 @@ let render_table_sdl ~cols ~header:(h1, h2, h3) ~rows ~cursor ~sel_col:_ ~opts =
     if idx = cursor then row_bg with_pointer else with_pointer
   in
   let body = List.mapi (fun i row -> line_for_row i row) rows_list in
-  let header_sep = fg 60 (String.make (max 0 (String.length header_line)) '-') in
+  let header_sep =
+    fg 60 (String.make (max 0 (String.length header_line)) '-')
+  in
   String.concat "\n" (header_line :: header_sep :: body)
 
 (* Generic table renderer that handles column width calculation, padding,
    borders, and selection highlighting. *)
-let render_table_generic_with_opts ?backend ~cols ~header_list ~rows_list ~cursor
-    ~sel_col:_ ~opts ?(col_opts = []) () =
+let render_table_generic_with_opts ?backend ~cols ~header_list ~rows_list
+    ~cursor ~sel_col:_ ~opts ?(col_opts = []) () =
   let glyphs = glyphs_for_backend ?backend () in
   let total_w =
     match cols with Some c -> max 20 (min c 240) | None -> col_widths_total

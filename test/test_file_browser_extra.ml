@@ -1,10 +1,11 @@
 open Alcotest
-
 module FB = Miaou_widgets_layout.File_browser_widget
 
 let make_stub ~writable =
   let open Miaou_interfaces in
-  let run_command ~argv:_ ~cwd:_ = Ok System.{exit_code = 0; stdout = ""; stderr = ""} in
+  let run_command ~argv:_ ~cwd:_ =
+    Ok System.{exit_code = 0; stdout = ""; stderr = ""}
+  in
   let files = ["dir1"; "dir2"; "file.txt"; "other.log"] in
   System.
     {
@@ -33,9 +34,15 @@ let test_autocomplete_and_history () =
   let w = FB.handle_key w ~key:"Shift-Tab" in
   check bool "shift tab" true (Option.is_some w.textbox) ;
   let w = FB.handle_key w ~key:"Enter" in
-  check bool "selection maybe" true (Option.is_some (FB.get_selection w) || Option.is_none w.textbox) ;
+  check
+    bool
+    "selection maybe"
+    true
+    (Option.is_some (FB.get_selection w) || Option.is_none w.textbox) ;
   let w = FB.handle_key w ~key:"Up" |> FB.handle_key ~key:"Down" in
-  let rendered = FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 10; cols = 50} in
+  let rendered =
+    FB.render_with_size w ~focus:true ~size:{LTerm_geom.rows = 10; cols = 50}
+  in
   check bool "rendered body" true (String.length rendered > 0) ;
   ignore w
 
@@ -49,7 +56,9 @@ let test_not_writable_error () =
 
 let test_read_only_mode () =
   Miaou_interfaces.System.set (make_stub ~writable:false) ;
-  let w = FB.open_centered ~path:"/tmp" ~dirs_only:false ~require_writable:false () in
+  let w =
+    FB.open_centered ~path:"/tmp" ~dirs_only:false ~require_writable:false ()
+  in
   let tb = FB.textbox_create ~initial:"/tmp/dir1" () in
   let w = {w with FB.mode = FB.EditingPath; textbox = Some tb} in
   let w = FB.handle_key w ~key:"Enter" in

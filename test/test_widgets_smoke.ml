@@ -1,5 +1,4 @@
 open Alcotest
-
 module W = Miaou_widgets_display.Widgets
 module Palette = Miaou_widgets_display.Palette
 

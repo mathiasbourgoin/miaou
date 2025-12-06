@@ -12,8 +12,14 @@ let test_wrap_line () =
 
 let test_wrap_words () =
   let input = "hello wide_world" in
-  let wrapped = Miaou_internals.Modal_utils.wrap_content_to_width_words input 6 in
-  check bool "word wrap keeps tokens" true (String.contains wrapped 'h' && String.contains wrapped 'w')
+  let wrapped =
+    Miaou_internals.Modal_utils.wrap_content_to_width_words input 6
+  in
+  check
+    bool
+    "word wrap keeps tokens"
+    true
+    (String.contains wrapped 'h' && String.contains wrapped 'w')
 
 let test_markdown () =
   let md = "# Title\n- item\n`code`\n[link](http://example.com)" in

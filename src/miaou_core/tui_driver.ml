@@ -6,6 +6,7 @@
 (*****************************************************************************)
 
 [@@@warning "-32-34-37-69"]
+
 [@@@coverage off]
 
 open Tui_page
@@ -61,9 +62,7 @@ let run (initial_page : (module PAGE_SIG)) : outcome =
     | `Quit -> `Quit
     | `SwitchTo "__BACK__" -> `Quit (* demo/back semantics: exit demo *)
     | `SwitchTo next -> (
-        match Registry.find next with
-        | Some p -> loop p
-        | None -> `Quit)
+        match Registry.find next with Some p -> loop p | None -> `Quit)
   in
   loop initial_page
 
