@@ -136,6 +136,11 @@
  (libraries alcotest miaou.widgets.display))
 
 (test
- (name test_headless_run)
- (modules test_headless_run)
- (libraries alcotest miaou.lib_miaou_internal))
+(name test_headless_run)
+(modules test_headless_run)
+(libraries alcotest miaou.lib_miaou_internal))
+
+(test
+ (name test_driver_modal_navigation)
+ (modules test_driver_modal_navigation)
+ (libraries alcotest miaou.core miaou.driver.term))
