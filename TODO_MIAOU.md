@@ -24,4 +24,4 @@ Source prompts (octez_setup/prompts/wip_plan):
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.
   - Record follow-ups for redesigns if needed.
 - [ ] Demo coverage planning
-  - Create a sub-checklist of missing demo entries per widget (existing + upcoming) and add them to this TODO. Scope: demo gallery in `example/demo_lib.ml` (launcher via `dune exec -- miaou.demo` or `miaou.demo-sdl`), each with a labeled entry and minimal interaction.
+  - Enumerate all widgets (existing + upcoming) and add sub-items here for any that lack a demo entry. Goal: every widget has a labeled entry with minimal interaction in the gallery (`example/demo_lib.ml`, launched via `dune exec -- miaou.demo` or `miaou.demo-sdl`).
