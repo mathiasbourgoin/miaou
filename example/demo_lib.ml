@@ -863,6 +863,71 @@ module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Card = Miaou_widgets_layout.Card_widget
+  module Sidebar = Miaou_widgets_layout.Sidebar_widget
+
+  type state = {next_page : string option}
+
+  type msg = unit
+
+  let init () = {next_page = None}
+
+  let update s _ = s
+
+  let view _ ~focus:_ ~size =
+    let cols = max 50 size.LTerm_geom.cols in
+    let card =
+      Card.create
+        ~title:"Card title"
+        ~footer:"Footer"
+        ~accent:81
+        ~body:"Body text"
+        ()
+      |> fun c -> Card.render c ~cols
+    in
+    let sidebar =
+      Sidebar.create
+        ~sidebar:"Navigation\n- Item 1\n- Item 2"
+        ~main:"Main content\nThis is the main panel."
+        ~sidebar_open:true
+        ()
+      |> fun s -> Sidebar.render s ~cols
+    in
+    String.concat "\n\n" ["Card & Sidebar demo (Esc returns)"; card; sidebar]
+
+  let go_home = {next_page = Some launcher_page_name}
+
+  let handle_key _ key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home
+    | _ -> {next_page = None}
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  (* legacy key_bindings removed *)
+
+  let keymap (_ : state) = []
+
+  let back _ = go_home
+
+  let has_modal _ = false
+end
+
 module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   type step = {title : string}
 
@@ -884,6 +949,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
       {title = "Pager Widget"};
       {title = "Tree Viewer"};
       {title = "Layout Helpers"};
+      {title = "Card & Sidebar"};
       {title = "Spinner & Progress"};
     ]
 
@@ -1006,6 +1072,11 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           (module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
     | 12 ->
+        goto
+          "demo_card_sidebar"
+          (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 13 ->
         goto
           "demo_spinner"
           (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
