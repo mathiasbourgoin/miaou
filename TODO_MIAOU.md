@@ -23,7 +23,3 @@ Source prompts (octez_setup/prompts/wip_plan):
   - Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.
   - Record follow-ups for redesigns if needed.
-- [ ] Refactor pages to Table_widget (M6_01, after widgets above)
-  - Standardize list-heavy pages on `Table_widget` (instances, wallets, teztnets browser, etc.).
-  - Map columns, preserve key handling, update headless/smoke tests to expect tables.
-  - Ensure tables handle dynamic refresh gracefully; keep key hints updated.
