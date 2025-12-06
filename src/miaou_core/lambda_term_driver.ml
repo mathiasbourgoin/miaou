@@ -1016,10 +1016,14 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               Modal_manager.close_top `Cancel ;
               clear_and_render st key_stack ;
               loop st key_stack)
-            else (
-              Modal_manager.handle_key key ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
+            else
+              let size = detect_size () in
+              let st' = Page.handle_modal_key st key ~size in
+              match Page.next_page st' with
+              | Some page -> `SwitchTo page
+              | None ->
+                  clear_and_render st' key_stack ;
+                  loop st' key_stack
           else (
             if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
             (* Stack dispatch first. *)
