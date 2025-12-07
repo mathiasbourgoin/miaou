@@ -28,6 +28,64 @@ let clear () =
   print_string "\027[2J\027[H" ;
   Stdlib.flush stdout
 
+(* Test helper: deterministic runner with injected key source, bypassing TTY setup. *)
+type driver_key =
+  | Quit
+  | Refresh
+  | Enter
+  | NextPage
+  | PrevPage
+  | Up
+  | Down
+  | Left
+  | Right
+  | Other of string
+
+let run_with_key_source_for_tests ~read_key (module Page : PAGE_SIG) :
+    [`Quit | `SwitchTo of string] =
+  let default_size = {LTerm_geom.rows = 24; cols = 80} in
+  let rec loop st =
+    match (read_key () : driver_key) with
+    | Quit -> `Quit
+    | Refresh -> (
+        let st' = Page.service_cycle st 0 in
+        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
+    | Enter -> (
+        if Modal_manager.has_active () then (
+          Modal_manager.handle_key "Enter" ;
+          let st' = Page.refresh st in
+          if Modal_manager.take_consume_next_key () then
+            if not (Modal_manager.has_active ()) then
+              let st'' = Page.service_cycle st' 0 in
+              match Page.next_page st'' with
+              | Some p -> `SwitchTo p
+              | None -> loop st''
+            else loop st'
+          else if not (Modal_manager.has_active ()) then
+            let st'' = Page.service_cycle st' 0 in
+            match Page.next_page st'' with
+            | Some p -> `SwitchTo p
+            | None -> loop st''
+          else loop st')
+        else
+          match Page.next_page st with
+          | Some p -> `SwitchTo p
+          | None -> (
+              let st' = Page.enter st in
+              match Page.next_page st' with
+              | Some p -> `SwitchTo p
+              | None -> loop st'))
+    | Up | Down | Left | Right | NextPage | PrevPage ->
+        (* For test purposes, treat navigation keys as no-ops. *)
+        loop st
+    | Other key -> (
+        let st' = Page.handle_key st key ~size:default_size in
+        match Page.next_page st' with Some p -> `SwitchTo p | None -> loop st')
+  in
+  Modal_manager.clear () ;
+  let st0 = Page.init () in
+  loop st0
+
 (* top-level reader removed; a local reader is used inside run_with_page to allow
   buffered read of escape sequences specific to the interactive driver. *)
 (* Other imports and module definitions *)
@@ -763,15 +821,24 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               Modal_manager.handle_key "Enter" ;
               (* If the modal requested the key be consumed, stop here and do not
                propagate Enter to the underlying page. *)
-              if Modal_manager.take_consume_next_key () then (
-                clear_and_render st key_stack ;
-                loop st key_stack)
+              if Modal_manager.take_consume_next_key () then
+                if not (Modal_manager.has_active ()) then (
+                  let st' = Page.service_cycle st 0 in
+                  match Page.next_page st' with
+                  | Some page -> `SwitchTo page
+                  | None ->
+                      clear_and_render st' key_stack ;
+                      loop st' key_stack)
+                else (
+                  clear_and_render st key_stack ;
+                  loop st key_stack)
               else if not (Modal_manager.has_active ()) then (
-                match Page.next_page st with
+                let st' = Page.service_cycle st 0 in
+                match Page.next_page st' with
                 | Some page -> `SwitchTo page
                 | None ->
-                    clear_and_render st key_stack ;
-                    loop st key_stack)
+                    clear_and_render st' key_stack ;
+                    loop st' key_stack)
               else (
                 clear_and_render st key_stack ;
                 loop st key_stack))
