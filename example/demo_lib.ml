@@ -1468,14 +1468,11 @@ module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let init () = {next_page = None}
 
   let render_box title basis ~size =
-    let lines =
+    String.concat "\n"
       [
         W.titleize title;
-        W.dim (Printf.sprintf "slot: %dx%d" size.LTerm_geom.cols size.rows);
-        basis;
+        W.dim (Printf.sprintf "slot %dx%d · %s" size.LTerm_geom.cols size.rows basis);
       ]
-    in
-    String.concat "\n" lines
 
   let row size =
     let children =
@@ -1540,20 +1537,17 @@ module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       W.dim
         "Row: px + percent + ratio + fill with gaps | Column: centered children"
     in
-    let half_cols = max 60 size.LTerm_geom.cols in
+    let row_height =
+      if size.LTerm_geom.rows < 20 then 4 else max 4 (size.LTerm_geom.rows / 3)
+    in
+    let col_height =
+      if size.LTerm_geom.rows < 20 then 6 else max 8 (size.LTerm_geom.rows / 2)
+    in
     let row_block =
-      row
-        {
-          LTerm_geom.cols = half_cols;
-          rows = max 3 (size.LTerm_geom.rows / 2);
-        }
+      row {LTerm_geom.cols = size.LTerm_geom.cols; rows = row_height}
     in
     let col_block =
-      column
-        {
-          LTerm_geom.cols = half_cols;
-          rows = max 6 (size.LTerm_geom.rows / 2);
-        }
+      column {LTerm_geom.cols = size.LTerm_geom.cols; rows = col_height}
     in
     String.concat "\n\n" [header; desc; row_block; col_block]
 
@@ -1722,38 +1716,217 @@ module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
 end
 
 module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
-  type step = {title : string}
+  type step = {title : string; open_demo : state -> state}
 
-  type state = {cursor : int; next_page : string option}
+  and state = {cursor : int; next_page : string option}
 
   type msg = Move of int
 
+  let goto name page =
+    let f s =
+      if not (Miaou.Core.Registry.exists name) then
+        Miaou.Core.Registry.register name page ;
+      {s with next_page = Some name}
+    in
+    f
+
   let demos =
     [
-      {title = "Textbox Widget"};
-      {title = "Select Widget"};
-      {title = "File Browser"};
-      {title = "Table Widget"};
-      {title = "Palette Sampler"};
-      {title = "Logger Demo"};
-      {title = "Key Handling"};
-      {title = "Select Widget (records)"};
-      {title = "Description List"};
-      {title = "Pager Widget"};
-      {title = "Tree Viewer"};
-      {title = "Layout Helpers"};
-      {title = "Flex Layout"};
-      {title = "Link"};
-      {title = "Checkboxes"};
-      {title = "Radio Buttons"};
-      {title = "Switch"};
-      {title = "Button"};
-      {title = "Validated Textbox"};
-      {title = "Breadcrumbs"};
-      {title = "Tabs Navigation"};
-      {title = "Toast Notifications"};
-      {title = "Card & Sidebar"};
-      {title = "Spinner & Progress"};
+      {
+        title = "Textbox Widget";
+        open_demo =
+          (fun s ->
+            Miaou.Core.Modal_manager.push
+              (module Textbox_modal)
+              ~init:(Textbox_modal.init ())
+              ~ui:
+                {
+                  title = "Textbox Demo";
+                  left = Some 20;
+                  max_width = Some 60;
+                  dim_background = true;
+                }
+              ~commit_on:["Enter"; "Tab"]
+              ~cancel_on:["Esc"]
+              ~on_close:(fun _ -> function
+                | `Commit -> Logs.info (fun m -> m "Textbox committed")
+                | `Cancel -> Logs.info (fun m -> m "Textbox cancelled")) ;
+            s);
+      };
+      {
+        title = "Select Widget";
+        open_demo =
+          (fun s ->
+            Miaou.Core.Modal_manager.confirm_with_extract
+              (module Select_modal)
+              ~init:(Select_modal.init ())
+              ~title:"Select Demo"
+              ~left:20
+              ~max_width:60
+              ~dim_background:true
+              ~extract:Select_modal.extract_selection
+              ~on_result:(fun res ->
+                match res with
+                | Some sel -> Logs.info (fun m -> m "Select committed: %s" sel)
+                | None -> Logs.info (fun m -> m "Select cancelled"))
+              () ;
+            s);
+      };
+      {
+        title = "File Browser";
+        open_demo =
+          (fun s ->
+            Miaou.Core.Modal_manager.push
+              (module File_browser_modal)
+              ~init:(File_browser_modal.init ())
+              ~ui:
+                {
+                  title = "File Browser Demo";
+                  left = Some 10;
+                  max_width = Some 80;
+                  dim_background = true;
+                }
+              ~commit_on:["Commit"]
+              ~cancel_on:["Esc"]
+              ~on_close:(fun _ -> function
+                | `Commit -> Logs.info (fun m -> m "File browser committed")
+                | `Cancel -> Logs.info (fun m -> m "File browser cancelled")) ;
+            s);
+      };
+      {
+        title = "Table Widget";
+        open_demo =
+          goto "demo_table"
+            (module Table_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Palette Sampler";
+        open_demo =
+          goto "demo_palette"
+            (module Palette_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Logger Demo";
+        open_demo =
+          goto "demo_logger"
+            (module Logger_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Key Handling";
+        open_demo =
+          goto "demo_keys"
+            (module Key_handling_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Select Widget (records)";
+        open_demo =
+          (fun s ->
+            Miaou.Core.Modal_manager.confirm_with_extract
+              (module Poly_select_modal)
+              ~init:(Poly_select_modal.init ())
+              ~title:"Select Demo (poly)"
+              ~left:20
+              ~max_width:60
+              ~dim_background:true
+              ~extract:Poly_select_modal.extract_selection
+              ~on_result:(fun res ->
+                match res with
+                | Some sel -> Logs.info (fun m -> m "Poly select committed: %s" sel)
+                | None -> Logs.info (fun m -> m "Poly select cancelled"))
+              () ;
+            s);
+      };
+      {
+        title = "Description List";
+        open_demo =
+          goto "demo_description_list"
+            (module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Pager Widget";
+        open_demo =
+          goto "demo_pager"
+            (module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Tree Viewer";
+        open_demo =
+          goto "demo_tree"
+            (module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Layout Helpers";
+        open_demo =
+          goto "demo_layout"
+            (module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Flex Layout";
+        open_demo =
+          goto "demo_flex"
+            (module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {title = "Link"; open_demo = goto "demo_link" (module Link_demo_page)};
+      {
+        title = "Checkboxes";
+        open_demo =
+          goto "demo_checkboxes"
+            (module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Radio Buttons";
+        open_demo =
+          goto "demo_radio"
+            (module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Switch";
+        open_demo =
+          goto "demo_switch"
+            (module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Button";
+        open_demo =
+          goto "demo_button"
+            (module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Validated Textbox";
+        open_demo =
+          goto "demo_validated_textbox"
+            (module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Breadcrumbs";
+        open_demo =
+          goto "demo_breadcrumbs"
+            (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Tabs Navigation";
+        open_demo =
+          goto "demo_tabs"
+            (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Toast Notifications";
+        open_demo =
+          goto "demo_toast"
+            (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Card & Sidebar";
+        open_demo =
+          goto "demo_card_sidebar"
+            (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
+        title = "Spinner & Progress";
+        open_demo =
+          goto "demo_spinner"
+            (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
     ]
 
   let init () = {cursor = 0; next_page = None}
@@ -1764,177 +1937,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
         {s with cursor = max 0 (min hi (s.cursor + d))}
 
   let open_demo s idx =
-    let goto name page s =
-      if not (Miaou.Core.Registry.exists name) then
-        Miaou.Core.Registry.register name page ;
-      {s with next_page = Some name}
-    in
-    match idx with
-    | 0 ->
-        Miaou.Core.Modal_manager.push
-          (module Textbox_modal)
-          ~init:(Textbox_modal.init ())
-          ~ui:
-            {
-              title = "Textbox Demo";
-              left = Some 20;
-              max_width = Some 60;
-              dim_background = true;
-            }
-          ~commit_on:["Enter"; "Tab"]
-          ~cancel_on:["Esc"]
-          ~on_close:(fun _ -> function
-            | `Commit -> Logs.info (fun m -> m "Textbox committed")
-            | `Cancel -> Logs.info (fun m -> m "Textbox cancelled")) ;
-        s
-    | 1 ->
-        Miaou.Core.Modal_manager.confirm_with_extract
-          (module Select_modal)
-          ~init:(Select_modal.init ())
-          ~title:"Select Demo"
-          ~left:20
-          ~max_width:60
-          ~dim_background:true
-          ~extract:Select_modal.extract_selection
-          ~on_result:(fun res ->
-            match res with
-            | Some sel -> Logs.info (fun m -> m "Select committed: %s" sel)
-            | None -> Logs.info (fun m -> m "Select cancelled"))
-          () ;
-        s
-    | 2 ->
-        Miaou.Core.Modal_manager.push
-          (module File_browser_modal)
-          ~init:(File_browser_modal.init ())
-          ~ui:
-            {
-              title = "File Browser Demo";
-              left = Some 10;
-              max_width = Some 80;
-              dim_background = true;
-            }
-          ~commit_on:["Commit"]
-          ~cancel_on:["Esc"]
-          ~on_close:(fun _ -> function
-            | `Commit -> Logs.info (fun m -> m "File browser committed")
-            | `Cancel -> Logs.info (fun m -> m "File browser cancelled")) ;
-        s
-    | 3 ->
-        goto
-          "demo_table"
-          (module Table_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 4 ->
-        goto
-          "demo_palette"
-          (module Palette_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 5 ->
-        goto
-          "demo_logger"
-          (module Logger_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 6 ->
-        goto
-          "demo_keys"
-          (module Key_handling_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 7 ->
-        Miaou.Core.Modal_manager.confirm_with_extract
-          (module Poly_select_modal)
-          ~init:(Poly_select_modal.init ())
-          ~title:"Select Demo (poly)"
-          ~left:20
-          ~max_width:60
-          ~dim_background:true
-          ~extract:Poly_select_modal.extract_selection
-          ~on_result:(fun res ->
-            match res with
-            | Some sel -> Logs.info (fun m -> m "Poly select committed: %s" sel)
-            | None -> Logs.info (fun m -> m "Poly select cancelled"))
-          () ;
-        s
-    | 8 ->
-        goto
-          "demo_description_list"
-          (module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 9 ->
-        goto
-          "demo_pager"
-          (module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 10 ->
-        goto
-          "demo_tree"
-          (module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 11 ->
-        goto
-          "demo_layout"
-          (module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 12 ->
-        goto
-          "demo_flex"
-          (module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 13 ->
-        goto
-          "demo_link"
-          (module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 14 ->
-        goto
-          "demo_checkboxes"
-          (module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 15 ->
-        goto
-          "demo_radio"
-          (module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 16 ->
-        goto
-          "demo_switch"
-          (module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 17 ->
-        goto
-          "demo_button"
-          (module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 18 ->
-        goto
-          "demo_validated_textbox"
-          (module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 19 ->
-        goto
-          "demo_breadcrumbs"
-          (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 20 ->
-        goto
-          "demo_tabs"
-          (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 21 ->
-        goto
-          "demo_toast"
-          (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 22 ->
-        goto
-          "demo_card_sidebar"
-          (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | 23 ->
-        goto
-          "demo_spinner"
-          (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
-          s
-    | _ -> s
+    match List.nth_opt demos idx with Some d -> d.open_demo s | None -> s
 
   let view s ~focus:_ ~size =
     let module W = Miaou_widgets_display.Widgets in
