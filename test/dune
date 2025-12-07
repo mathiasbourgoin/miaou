@@ -181,7 +181,11 @@
 (test
  (name test_input_widgets)
  (modules test_input_widgets)
- (libraries alcotest miaou.widgets.input miaou.widgets.display))
+ (libraries
+   alcotest
+   miaou.widgets.input
+   miaou.widgets.display
+   miaou_demo_lib))
 
 (test
  (name test_description_list)
@@ -197,3 +201,18 @@
  (name test_focus_chain)
  (modules test_focus_chain)
  (libraries alcotest miaou.internals))
+
+(test
+ (name test_sparkline)
+ (modules test_sparkline)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_line_chart)
+ (modules test_line_chart)
+ (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_bar_chart)
+ (modules test_bar_chart)
+ (libraries alcotest miaou.widgets.display))
