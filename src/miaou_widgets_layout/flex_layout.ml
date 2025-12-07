@@ -73,16 +73,28 @@ let rec take n lst =
   if n <= 0 then []
   else match lst with [] -> [] | x :: xs -> x :: take (n - 1) xs
 
-let pad_block lines ~width ~height =
-  let lines = pad_lines lines ~width in
-  let padded =
-    if List.length lines >= height then lines
-    else
-      lines
-      @ List.init (height - List.length lines) (fun _ ->
-            String.make width ' ')
+let pad_block ?(align : align_items = Start) lines ~width ~height =
+  let lines =
+    lines
+    |> List.map (fun line ->
+           let vis = W.visible_chars_count line in
+           if vis > width then truncate_visible line width else line)
+    |> (function
+         | ls when align = Stretch -> pad_lines ls ~width
+         | ls -> ls)
+    |> take height
   in
-  take height padded
+  let missing = max 0 (height - List.length lines) in
+  let blanks n = List.init n (fun _ -> String.make width ' ') in
+  match align with
+  | Start -> lines @ blanks missing
+  | End -> blanks missing @ lines
+  | Center ->
+      let top = missing / 2 in
+      blanks top @ lines @ blanks (missing - top)
+  | Stretch ->
+      (* For now, stretch behaves like start; future iterations could distribute extra lines. *)
+      lines @ blanks missing
 
 let compute_sizes direction padding gap size children =
   let available_main =
@@ -121,21 +133,45 @@ let compute_sizes direction padding gap size children =
   in
   List.map alloc_child children
 
-let distribute justify gap sizes =
+let distribute direction padding justify gap child_sizes size =
+  let children = List.length child_sizes in
+  let inner =
+    match direction with
+    | Row -> size.LTerm_geom.cols - padding.left - padding.right
+    | Column -> size.LTerm_geom.rows - padding.top - padding.bottom
+  in
+  let used =
+    List.fold_left ( + ) 0 child_sizes
+    + max 0 ((children - 1) * (if direction = Row then gap.h else gap.v))
+  in
+  let extra = max 0 (inner - used) in
   match justify with
-  | Start -> (0, gap)
-  | End -> (0, gap)
-  | Center -> (0, gap)
+  | Start -> (0, gap, extra)
+  | End -> (extra, gap, 0)
+  | Center ->
+      let lead = extra / 2 in
+      (lead, gap, extra - lead)
   | Space_between ->
-      let spaces =
-        if List.length sizes <= 1 then gap else gap
+      if children <= 1 then (0, gap, extra)
+      else
+        let between =
+          if direction = Row then {gap with h = gap.h + extra / (children - 1)}
+          else {gap with v = gap.v + extra / (children - 1)}
+        in
+        (0, between, extra mod max 1 (children - 1))
+  | Space_around ->
+      let lead = extra / (children + 1) in
+      let between =
+        if direction = Row then {gap with h = gap.h + lead}
+        else {gap with v = gap.v + lead}
       in
-      (0, spaces)
-  | Space_around -> (0, gap)
+      (lead, between, extra - lead * (children + 1))
 
 let render_row t ~size =
   let child_sizes = compute_sizes Row t.padding t.gap size t.children in
-  let _offset, gap = distribute t.justify t.gap child_sizes in
+  let leading, gap, trailing_extra =
+    distribute Row t.padding t.justify t.gap child_sizes size
+  in
   let max_h = size.LTerm_geom.rows - t.padding.top - t.padding.bottom in
   let rendered =
     List.map2
@@ -143,14 +179,18 @@ let render_row t ~size =
         let child_size =
           {LTerm_geom.rows = max_h; cols = max 0 w}
         in
-        let block = pad_block (split_lines (c.render ~size:child_size)) ~width:w ~height:max_h in
+        let raw = split_lines (c.render ~size:child_size) in
+        let block =
+          pad_block ~align:t.align_items raw ~width:w ~height:max_h
+        in
         block)
       t.children child_sizes
   in
+  let inner_width = size.LTerm_geom.cols - t.padding.left - t.padding.right in
   let lines =
     List.init max_h (fun row ->
         let buf = Buffer.create (size.LTerm_geom.cols + 2) in
-        Buffer.add_string buf (String.make t.padding.left ' ') ;
+        Buffer.add_string buf (String.make (t.padding.left + leading) ' ') ;
         let rec emit idx blocks =
           match blocks with
           | [] -> ()
@@ -163,7 +203,16 @@ let render_row t ~size =
               emit (idx + 1) rest
         in
         emit 0 rendered ;
-        Buffer.add_string buf (String.make t.padding.right ' ') ;
+        let used =
+          List.fold_left ( + ) 0 child_sizes
+          + max 0 ((List.length child_sizes - 1) * gap.h)
+        in
+        let consumed = leading + used in
+        let remaining =
+          max 0 (inner_width - consumed - trailing_extra)
+        in
+        Buffer.add_string buf
+          (String.make (remaining + t.padding.right + trailing_extra) ' ') ;
         Buffer.contents buf)
   in
   lines
@@ -171,27 +220,58 @@ let render_row t ~size =
 let render_column t ~size =
   let child_sizes = compute_sizes Column t.padding t.gap size t.children in
   let max_w = size.LTerm_geom.cols - t.padding.left - t.padding.right in
+  let leading, gap, trailing_extra =
+    distribute Column t.padding t.justify t.gap child_sizes size
+  in
   let blocks =
     List.map2
       (fun c h ->
         let child_size = {LTerm_geom.rows = max 0 h; cols = max_w} in
         let blk =
-          pad_block (split_lines (c.render ~size:child_size)) ~width:max_w
-            ~height:h
+          pad_block ~align:t.align_items
+            (split_lines (c.render ~size:child_size))
+            ~width:max_w ~height:h
         in
         blk)
       t.children child_sizes
   in
+  let gap_lines =
+    if gap.v <= 0 then [] else List.init gap.v (fun _ -> String.make max_w ' ')
+  in
+  let rec interleave = function
+    | [] -> []
+    | [b] -> b
+    | b :: rest -> b @ gap_lines @ interleave rest
+  in
   let rows =
     size.LTerm_geom.rows - t.padding.top - t.padding.bottom
   in
-  let all_lines = List.concat blocks |> take rows in
+  let spaced =
+    interleave blocks
+    |> fun lines ->
+    let top = List.init leading (fun _ -> String.make max_w ' ') in
+    let bottom = List.init trailing_extra (fun _ -> String.make max_w ' ') in
+    top @ lines @ bottom
+  in
+  let all_lines = take rows spaced in
   let with_pad =
     List.map
       (fun line ->
         let vis = W.visible_chars_count line in
-        let pad_right = max 0 (size.LTerm_geom.cols - t.padding.left - t.padding.right - vis) in
-        String.make t.padding.left ' ' ^ line ^ String.make pad_right ' ')
+        let trimmed =
+          if vis > max_w then truncate_visible line max_w else line
+        in
+        let free = max 0 (max_w - W.visible_chars_count trimmed) in
+        let left_pad, right_pad =
+          match t.align_items with
+          | Start | Stretch -> (0, free)
+          | End -> (free, 0)
+          | Center ->
+              let l = free / 2 in
+              (l, free - l)
+        in
+        String.make (t.padding.left + left_pad) ' ' ^ trimmed
+        ^ String.make (t.padding.right + right_pad) ' ')
       all_lines
   in
   with_pad

@@ -12,7 +12,7 @@ Source prompts (octez_setup/prompts/wip_plan):
   - Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.
   - Record follow-ups for redesigns if needed.
-- [ ] Flex layout (gap-closing step 1 from `docs/gardening/m5_followups.md`)
+- [x] Flex layout (gap-closing step 1 from `docs/gardening/m5_followups.md`)
   - Finalize the public API/docs in `src/miaou_widgets_layout/flex_layout.mli` (align with `docs/gardening/flex_api_design.md`, clarify basis semantics: px/percent/ratio/fill/auto).
   - Lock down alignment rules (`align_items`, `justify`, gap/padding) with examples and invariants documented in the `.mli`.
   - Add sizing property tests in `test/test_flex_layout.ml` to cover padding/gap/percent/ratio/cross-axis stretch vs center.

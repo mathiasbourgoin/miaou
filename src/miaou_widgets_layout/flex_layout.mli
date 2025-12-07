@@ -25,9 +25,12 @@ type basis =
 type size_hint = {width : int option; height : int option}
 
 type child = {
-  render : size:LTerm_geom.size -> string;
+  render : size:LTerm_geom.size -> string;  (** Render for the provided slot. *)
   basis : basis;
-  cross : size_hint option;
+      (** Main-axis size request. [Auto]/[Fill] participate in even splitting of the remaining
+          space. [Px] is fixed, [Percent] is relative to the available main size (after padding),
+          and [Ratio] distributes the remaining space proportionally across all ratio-based items. *)
+  cross : size_hint option;  (** Optional cross-axis size hint; [None] uses the parent slot. *)
 }
 
 type t
@@ -40,5 +43,27 @@ val create :
   ?padding:padding ->
   child list ->
   t
+(** Create a flex container.
+
+    - [direction]: main axis, [Row] (horizontal) or [Column] (vertical).
+    - [align_items]: cross-axis placement of each child ([Start]/[Center]/[End]/[Stretch]).
+    - [justify]: distribution on the main axis (start/center/end/space_between/space_around).
+    - [gap]: horizontal/vertical spacing between children.
+    - [padding]: surrounding padding inside the container.
+
+    Children are rendered in order; strings longer than their slot are visually truncated. *)
 
 val render : t -> size:LTerm_geom.size -> string
+(** Render the flex container into a newline-separated string sized to [size].
+
+    {[
+    let open Miaou_widgets_layout.Flex_layout in
+    let row =
+      create ~direction:Row ~gap:{h = 1; v = 0}
+        [ {render = (fun ~size:_ -> "A"); basis = Px 1; cross = None};
+          {render = (fun ~size:_ -> "wide"); basis = Percent 50.; cross = None};
+          {render = (fun ~size:_ -> "fill"); basis = Fill; cross = None} ]
+    in
+    print_string (render row ~size:{cols = 30; rows = 1})
+    ]}
+*)

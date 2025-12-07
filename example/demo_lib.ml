@@ -1457,6 +1457,138 @@ module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Flex = Miaou_widgets_layout.Flex_layout
+  module W = Miaou_widgets_display.Widgets
+
+  type state = {next_page : string option}
+
+  type msg = unit
+
+  let init () = {next_page = None}
+
+  let render_box title basis ~size =
+    let lines =
+      [
+        W.titleize title;
+        W.dim (Printf.sprintf "slot: %dx%d" size.LTerm_geom.cols size.rows);
+        basis;
+      ]
+    in
+    String.concat "\n" lines
+
+  let row size =
+    let children =
+      [
+        {
+          Flex.render = render_box "Fixed" "Px 10";
+          basis = Flex.Px 10;
+          cross = None;
+        };
+        {
+          Flex.render = render_box "Percent" "30%";
+          basis = Flex.Percent 30.;
+          cross = None;
+        };
+        {
+          Flex.render = render_box "Ratio" "2x share";
+          basis = Flex.Ratio 2.;
+          cross = None;
+        };
+        {
+          Flex.render = render_box "Fill" "Auto";
+          basis = Flex.Fill;
+          cross = None;
+        };
+      ]
+    in
+    Flex.create ~direction:Flex.Row ~gap:{h = 2; v = 0}
+      ~padding:{left = 2; right = 2; top = 0; bottom = 0}
+      ~align_items:Flex.Center ~justify:Flex.Space_between children
+    |> fun flex -> Flex.render flex ~size
+
+  let column size =
+    let children =
+      [
+        {
+          Flex.render = render_box "Top" "Fill";
+          basis = Flex.Fill;
+          cross = Some {width = Some 24; height = None};
+        };
+        {
+          Flex.render = render_box "Middle" "Percent 40%";
+          basis = Flex.Percent 40.;
+          cross = None;
+        };
+        {
+          Flex.render = render_box "Bottom" "Px 3";
+          basis = Flex.Px 3;
+          cross = None;
+        };
+      ]
+    in
+    Flex.create ~direction:Flex.Column ~gap:{h = 0; v = 1}
+      ~padding:{left = 2; right = 2; top = 1; bottom = 1}
+      ~align_items:Flex.Center ~justify:Flex.Center children
+    |> fun flex -> Flex.render flex ~size
+
+  let update s _ = s
+
+  let view _ ~focus:_ ~size =
+    let header = W.titleize "Flex layout (Esc returns)" in
+    let desc =
+      W.dim
+        "Row: px + percent + ratio + fill with gaps | Column: centered children"
+    in
+    let half_cols = max 60 size.LTerm_geom.cols in
+    let row_block =
+      row
+        {
+          LTerm_geom.cols = half_cols;
+          rows = max 3 (size.LTerm_geom.rows / 2);
+        }
+    in
+    let col_block =
+      column
+        {
+          LTerm_geom.cols = half_cols;
+          rows = max 6 (size.LTerm_geom.rows / 2);
+        }
+    in
+    String.concat "\n\n" [header; desc; row_block; col_block]
+
+  let go_home = {next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  (* legacy key_bindings removed *)
+
+  let keymap (_ : state) = []
+
+  let back _ = {next_page = Some launcher_page_name}
+
+  let has_modal _ = false
+end
+
 module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG = struct
   type state = {
     widget : Miaou_widgets_display.Description_list.t;
@@ -1610,6 +1742,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
       {title = "Pager Widget"};
       {title = "Tree Viewer"};
       {title = "Layout Helpers"};
+      {title = "Flex Layout"};
       {title = "Link"};
       {title = "Checkboxes"};
       {title = "Radio Buttons"};
@@ -1743,55 +1876,60 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           s
     | 12 ->
         goto
+          "demo_flex"
+          (module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 13 ->
+        goto
           "demo_link"
           (module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 13 ->
+    | 14 ->
         goto
           "demo_checkboxes"
           (module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 14 ->
+    | 15 ->
         goto
           "demo_radio"
           (module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 15 ->
+    | 16 ->
         goto
           "demo_switch"
           (module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 16 ->
+    | 17 ->
         goto
           "demo_button"
           (module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 17 ->
+    | 18 ->
         goto
           "demo_validated_textbox"
           (module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 18 ->
+    | 19 ->
         goto
           "demo_breadcrumbs"
           (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 19 ->
+    | 20 ->
         goto
           "demo_tabs"
           (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 20 ->
+    | 21 ->
         goto
           "demo_toast"
           (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 21 ->
+    | 22 ->
         goto
           "demo_card_sidebar"
           (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 22 ->
+    | 23 ->
         goto
           "demo_spinner"
           (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
