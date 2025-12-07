@@ -895,8 +895,9 @@ end
 
 module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Radio = Miaou_widgets_input.Radio_button_widget
+  module Focus_chain = Miaou_internals.Focus_chain
 
-  type state = {options : Radio.t list; next_page : string option}
+  type state = {options : Radio.t list; focus : Focus_chain.t; next_page : string option}
 
   type msg = unit
 
@@ -908,7 +909,11 @@ module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
         Radio.create ~label:"Custom" ();
       ]
     in
-    {options; next_page = None}
+    {
+      options;
+      focus = Focus_chain.create ~total:(List.length options);
+      next_page = None;
+    }
 
   let update s (_ : msg) = s
 
@@ -918,7 +923,8 @@ module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
       List.mapi
         (fun i r ->
           let prefix = W.dim (Printf.sprintf "%d) " (i + 1)) in
-          prefix ^ Radio.render r ~focus:true)
+          let focus = Focus_chain.current s.focus = Some i in
+          prefix ^ Radio.render r ~focus)
         s.options
     in
     String.concat "\n" (W.titleize "Radio buttons" :: items)
@@ -940,11 +946,25 @@ module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
         go_home s
+    | Some Miaou.Core.Keys.Tab | Some (Miaou.Core.Keys.Char "Tab") ->
+        let focus, _ = Focus_chain.handle_key s.focus ~key:"Tab" in
+        {s with focus}
     | Some (Miaou.Core.Keys.Char n) -> (
         match int_of_string_opt n with
         | Some d when d >= 1 && d <= List.length s.options -> select (d - 1) s
         | _ -> s)
-    | _ -> s
+    | _ -> (
+        match Focus_chain.current s.focus with
+        | Some idx ->
+            let options =
+              List.mapi
+                (fun i r ->
+                  if i = idx then Radio.handle_key r ~key:key_str
+                  else Radio.set_selected r false)
+                s.options
+            in
+            {s with options}
+        | None -> s)
 
   let move s _ = s
 
