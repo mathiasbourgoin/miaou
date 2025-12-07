@@ -13,7 +13,7 @@ Source prompts (octez_setup/prompts/wip_plan):
   - `Sidebar_widget` implemented in `src/miaou_widgets_layout/sidebar_widget.{ml,mli}` with toggle logic (Tab in demo), tests, and gallery entry.
 - [x] Feedback widgets (M5_02)
   - `Toast_widget` implemented with position/severity/auto-dismiss queue (`src/miaou_widgets_layout/toast_widget.{ml,mli}`) + tests (`test/test_feedback_widgets.ml`) and demo entry "Toast Notifications".
-  - [ ] Integrate with flash bus (`Tui_flash_messages` or new bus); expand headless tests and wire bus into demo once ready.
+  - [x] Integrate with flash bus (`Lib_miaou_internal.Flash_bus`): toasts render bus snapshots (headless driver + tests), demo shows bus messages.
 - [x] Navigation widgets (M5_03)
   - `Tabs_widget` (tab list, Left/Right/Home/End navigation) with docs/tests/demo (`src/miaou_widgets_navigation/tabs_widget.{ml,mli}`, `test/test_navigation_widgets.ml`, demo "Tabs Navigation" in `example/demo_lib.ml`).
   - `Breadcrumbs_widget` (hierarchical path rendering + Enter callbacks) with docs/tests/demo (`src/miaou_widgets_navigation/breadcrumbs_widget.{ml,mli}`, `test/test_navigation_widgets.ml`, demo "Breadcrumbs" in `example/demo_lib.ml`).
