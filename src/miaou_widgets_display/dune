@@ -7,9 +7,16 @@
   table_widget_sdl
   tree_widget
   description_list
+  sparkline_widget
+  sparkline_widget_sdl
+  line_chart_widget
+  line_chart_widget_sdl
+  bar_chart_widget
+  chart_utils
+  sdl_chart_context
   widgets
   palette
   palette_sdl)
  (instrumentation
   (backend bisect_ppx))
- (libraries yojson str miaou.helpers miaou.interfaces))
+ (libraries yojson str miaou.helpers miaou.interfaces tsdl))

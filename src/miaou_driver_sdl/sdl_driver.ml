@@ -23,6 +23,69 @@ let available = true
 
 type color = {r : int; g : int; b : int; a : int}
 
+(* TODO: Architecture improvement - GADT-Based Render Tree Abstraction
+   =====================================================================
+   
+   Current approach: Chart widgets have dual rendering methods (text + SDL).
+   Pages return strings from view(). SDL rendering uses global context with
+   Obj.magic to pass renderer without circular dependencies. This works but
+   is not type-safe and requires widget-specific SDL integration.
+   
+   Future improvement: GADT-based render tree with typed backends
+   ---------------------------------------------------------------
+   Instead of widgets returning strings, use a typed intermediate representation:
+   
+   type _ backend = 
+     | Terminal : terminal_config -> string backend
+     | SDL : sdl_config -> unit backend
+   
+   type 'a render_tree =
+     | Text : string -> 'a render_tree
+     | Box : { x:int; y:int; width:int; height:int; style:style } -> 'a render_tree
+     | Sparkline : sparkline_spec -> 'a render_tree
+     | LineChart : chart_spec -> 'a render_tree
+     | VStack : 'a render_tree list -> 'a render_tree
+     | HStack : 'a render_tree list -> 'a render_tree
+   
+   type interpreter = {
+     render: 'a. 'a backend -> 'a render_tree -> 'a
+   }
+   
+   Benefits:
+   - Type-safe: Backend selection checked at compile time
+   - Clean: No global mutable state or Obj.magic needed
+   - Extensible: Easy to add new backends (HTML, SVG, PNG export)
+   - Composable: Render trees can be analyzed, transformed, optimized
+   - Testable: Can inspect trees without rendering
+   - No duplication: Single widget implementation, multiple interpreters
+   - Future-proof: Ready for server-side rendering, image generation, etc.
+   
+   Implementation path:
+   1. Define render tree types in miaou_core (GADTs for type safety)
+   2. Create interpreter interface and terminal/SDL implementations
+   3. Update one widget as proof-of-concept (e.g., sparkline)
+   4. Gradually migrate other widgets
+   5. Update PAGE_SIG to return render trees
+   6. Update all pages' view functions
+   7. Remove old text-based APIs once migration complete
+   
+   Challenges:
+   - Breaking change: All widgets and pages need updates
+   - Learning curve: GADTs may be unfamiliar to contributors
+   - Initial effort: ~500-1000 LOC across the codebase
+   - Migration period: Need to support both APIs temporarily
+   
+   Estimated timeline:
+   - Phase 1 (types + proof-of-concept): 1-2 days
+   - Phase 2 (widget migration): 3-5 days
+   - Phase 3 (page migration): 2-3 days
+   - Phase 4 (cleanup + tests): 1-2 days
+   
+   Trade-off: Current approach (global SDL context + Obj.magic) works now
+   and doesn't block future migration. The GADT approach is the "right way"
+   long-term but requires significant refactoring effort.
+*)
+
 type ansi_state = {fg : color; bg : color}
 
 type config = {
@@ -812,11 +875,32 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
   let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
       (st : s) =
     let size = !size_ref in
+    
+    (* Draw background FIRST, before any SDL chart rendering *)
+    draw_background renderer cfg char_w char_h ;
+    
+    (* Set up SDL rendering context for enhanced chart widgets *)
+    Miaou_widgets_display.Sdl_chart_context.set_context_obj
+      ~renderer
+      ~font
+      ~char_w
+      ~char_h
+      ~y_offset:(char_h * 4) (* Start at line 4 - SDL charts stay at original position *)
+      ~cols:size.cols
+      ~enabled:true
+      () ;
+    
+    (* Render page (may use SDL context for charts) *)
     let text = render_page (module P) st size in
+    
+    (* Clear SDL context *)
+    Miaou_widgets_display.Sdl_chart_context.clear_context () ;
+    
     let default_state : ansi_state = {fg = cfg.fg; bg = cfg.bg} in
     let clean_text = strip_ansi_to_text ~default:default_state text in
     Capture.record_frame ~rows:size.rows ~cols:size.cols clean_text ;
-    draw_background renderer cfg char_w char_h ;
+    
+    (* Render text (without clearing background) *)
     render_lines
       renderer
       font
@@ -824,7 +908,7 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       ~bg:cfg.bg
       ~char_w
       ~char_h
-      ~clear:false
+      ~clear:false  (* Already cleared by draw_background above *)
       ~present:false
       (String.split_on_char '\n' text) ;
     ignore (Sdl.render_present renderer)
@@ -846,8 +930,12 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
             | Some (module Next : PAGE_SIG) ->
                 let st_to = Next.init () in
                 let size = !size_ref in
+                (* Disable SDL chart rendering during transition text capture *)
+                Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                  ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
                 let from_text = render_page (module P) st size in
                 let to_text = render_page (module Next) st_to size in
+                Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                 perform_transition
                   renderer
                   font
@@ -877,8 +965,12 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           | Some (module Next : PAGE_SIG) ->
               let st_to = Next.init () in
               let size = !size_ref in
+              (* Disable SDL chart rendering during transition text capture *)
+              Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
               let from_text = render_page (module P) st size in
               let to_text = render_page (module Next) st_to size in
+              Miaou_widgets_display.Sdl_chart_context.clear_context () ;
               perform_transition
                 renderer
                 font
@@ -913,8 +1005,12 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                 | Some (module Next : PAGE_SIG) ->
                     let st_to = Next.init () in
                     let size = !size_ref in
+                    (* Disable SDL chart rendering during transition text capture *)
+                    Miaou_widgets_display.Sdl_chart_context.set_context_obj
+                      ~renderer ~font ~char_w ~char_h ~y_offset:0 ~cols:size.cols ~enabled:false () ;
                     let from_text = render_page (module P) st' size in
                     let to_text = render_page (module Next) st_to size in
+                    Miaou_widgets_display.Sdl_chart_context.clear_context () ;
                     perform_transition
                       renderer
                       font
