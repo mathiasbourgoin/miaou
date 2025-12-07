@@ -1290,6 +1290,8 @@ end
 
 module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Toast = Miaou_widgets_layout.Toast_widget
+  module Flash_bus = Lib_miaou_internal.Flash_bus
+  module Flash_toast = Lib_miaou_internal.Flash_toast_renderer
 
   type state = {toasts : Toast.t; next_page : string option}
 
@@ -1330,11 +1332,20 @@ module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let header = W.titleize "Toast notifications" in
     let tips =
       W.dim
-        "1: info • 2: ok • 3: warn • 4: error • d: dismiss • p: position • \
-         Esc: back"
+        "1: info • 2: ok • 3: warn • 4: error • b: flash bus • d: dismiss • p: \
+         position • Esc: back"
     in
     let rendered = Toast.render s.toasts ~cols:size.LTerm_geom.cols in
-    String.concat "\n" [header; tips; ""; rendered]
+    let bus_block =
+      let snapshot = Flash_bus.snapshot () in
+      if snapshot = [] then W.dim "(flash bus empty)"
+      else
+        Flash_toast.render_snapshot
+          ~position:`Bottom_right
+          ~cols:size.LTerm_geom.cols
+          snapshot
+    in
+    String.concat "\n" [header; tips; ""; rendered; ""; bus_block]
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
@@ -1345,6 +1356,9 @@ module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     | Some (Miaou.Core.Keys.Char "2") -> add Toast.Success "Success" s
     | Some (Miaou.Core.Keys.Char "3") -> add Toast.Warn "Warning" s
     | Some (Miaou.Core.Keys.Char "4") -> add Toast.Error "Error" s
+    | Some (Miaou.Core.Keys.Char "b") ->
+        Flash_bus.push ~level:Flash_bus.Warn "Bus warning" ;
+        s
     | Some (Miaou.Core.Keys.Char "d") -> dismiss_oldest s
     | Some (Miaou.Core.Keys.Char "p") -> set_position s
     | _ -> s

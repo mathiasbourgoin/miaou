@@ -61,19 +61,13 @@ let render_page_with (type s) (module P : Tui_page.PAGE_SIG with type state = s)
     match flashes with
     | [] -> base
     | lst ->
-        let color_of = function
-          | Flash_bus.Info -> "[i]"
-          | Success -> "[✓]"
-          | Warn -> "[!]"
-          | Error -> "[x]"
-        in
-        let lines =
-          List.map
-            (fun (lvl, msg) -> Printf.sprintf "%s %s" (color_of lvl) msg)
+        let toast_block =
+          Flash_toast_renderer.render_snapshot
+            ~position:`Bottom_right
+            ~cols:size.cols
             lst
         in
-        let block = String.concat "\n" lines in
-        base ^ "\n" ^ block
+        base ^ "\n" ^ toast_block
   in
   Screen.clear () ;
   Screen.append content ;

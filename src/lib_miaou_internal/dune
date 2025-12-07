@@ -3,7 +3,7 @@
 (library
  (name lib_miaou_internal)
  (public_name miaou.lib_miaou_internal)
- (modules flash_bus headless_driver)
+ (modules flash_bus flash_toast_renderer headless_driver)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou.core miaou.internals lambda-term unix))
+ (libraries miaou.core miaou.internals miaou.widgets.layout lambda-term unix))

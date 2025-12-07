@@ -12,7 +12,7 @@
  (name miaou_demo_lib)
  (modules demo_lib)
  (wrapped false)
- (libraries miaou miaou_example))
+ (libraries miaou miaou_example miaou.lib_miaou_internal))
 
 (include_subdirs no)
 

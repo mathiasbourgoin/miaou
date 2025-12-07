@@ -57,7 +57,7 @@ let test_headless_driver () =
   let content = Headless.get_screen_content () in
   check bool "renders size" true (String.exists (fun c -> c = 'x') content) ;
   check bool "contains state marker" true (String.contains content '0') ;
-  check bool "flash message" true (String.contains content 'e') ;
+  check bool "flash message" true (String.exists (fun c -> c = '[') content) ;
   Headless.Screen.clear () ;
   check string "cleared" "" (Headless.Screen.get ())
 
