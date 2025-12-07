@@ -192,3 +192,8 @@
  (name test_table_wrap)
  (modules test_table_wrap)
  (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_focus_chain)
+ (modules test_focus_chain)
+ (libraries alcotest miaou.internals))
