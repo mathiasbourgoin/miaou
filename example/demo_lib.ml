@@ -807,6 +807,329 @@ module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Checkbox = Miaou_widgets_input.Checkbox_widget
+
+  type state = {boxes : Checkbox.t list; next_page : string option}
+
+  type msg = unit
+
+  let init () =
+    let boxes =
+      [
+        Checkbox.create ~label:"Enable metrics" ();
+        Checkbox.create ~label:"Enable RPCs" ();
+        Checkbox.create ~label:"Enable baking" ~checked_:true ();
+      ]
+    in
+    {boxes; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let items =
+      List.mapi
+        (fun i cb ->
+          let prefix = W.dim (Printf.sprintf "%d) " (i + 1)) in
+          prefix ^ Checkbox.render cb ~focus:true)
+        s.boxes
+    in
+    String.concat "\n" (W.titleize "Checkboxes" :: items)
+
+  let toggle idx s =
+    let boxes =
+      List.mapi
+        (fun i cb ->
+          if i = idx then Checkbox.handle_key cb ~key:"Space" else cb)
+        s.boxes
+    in
+    {s with boxes}
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home s
+    | Some (Miaou.Core.Keys.Char n) -> (
+        match int_of_string_opt n with
+        | Some d when d >= 1 && d <= List.length s.boxes -> toggle (d - 1) s
+        | _ -> s)
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
+module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Radio = Miaou_widgets_input.Radio_button_widget
+
+  type state = {options : Radio.t list; next_page : string option}
+
+  type msg = unit
+
+  let init () =
+    let options =
+      [
+        Radio.create ~label:"Mainnet" ~selected:true ();
+        Radio.create ~label:"Ghostnet" ();
+        Radio.create ~label:"Custom" ();
+      ]
+    in
+    {options; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let items =
+      List.mapi
+        (fun i r ->
+          let prefix = W.dim (Printf.sprintf "%d) " (i + 1)) in
+          prefix ^ Radio.render r ~focus:true)
+        s.options
+    in
+    String.concat "\n" (W.titleize "Radio buttons" :: items)
+
+  let select idx s =
+    let options =
+      List.mapi
+        (fun i r ->
+          if i = idx then Radio.handle_key r ~key:"Enter"
+          else Radio.set_selected r false)
+        s.options
+    in
+    {s with options}
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home s
+    | Some (Miaou.Core.Keys.Char n) -> (
+        match int_of_string_opt n with
+        | Some d when d >= 1 && d <= List.length s.options -> select (d - 1) s
+        | _ -> s)
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
+module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Switch = Miaou_widgets_input.Switch_widget
+
+  type state = {switch : Switch.t; next_page : string option}
+
+  type msg = unit
+
+  let init () =
+    let switch = Switch.create ~label:"Auto-update" ~on:false () in
+    {switch; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Switch" in
+    let body = Switch.render s.switch ~focus:true in
+    let hint = W.dim "Space/Enter toggles, Esc returns" in
+    String.concat "\n\n" [header; body; hint]
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home s
+    | Some (Miaou.Core.Keys.Char " ") | Some Miaou.Core.Keys.Enter ->
+        {s with switch = Switch.handle_key s.switch ~key:"Enter"}
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
+module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Button = Miaou_widgets_input.Button_widget
+
+  type state = {button : Button.t; clicks : int; next_page : string option}
+
+  type msg = unit
+
+  let init () =
+    let clicks = 0 in
+    let button =
+      Button.create ~label:"Deploy" ~on_click:(fun () ->
+          Logs.info (fun m -> m "Clicked"))
+    in
+    {button; clicks; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Button" in
+    let body = Button.render s.button ~focus:true in
+    let info = W.dim (Printf.sprintf "Clicks: %d" s.clicks) in
+    String.concat "\n\n" [header; body; info]
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    let button, fired = Button.handle_key s.button ~key:key_str in
+    let clicks = if fired then s.clicks + 1 else s.clicks in
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home {s with button; clicks}
+    | _ -> {s with button; clicks}
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
+module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Vtextbox = Miaou_widgets_input.Validated_textbox_widget
+
+  type state = {box : int Vtextbox.t; next_page : string option}
+
+  type msg = unit
+
+  let validate_int s =
+    match int_of_string_opt s with
+    | Some v when v >= 0 -> Vtextbox.Valid v
+    | _ -> Vtextbox.Invalid "Enter a non-negative integer"
+
+  let init () =
+    let box =
+      Vtextbox.create
+        ~title:"Instances"
+        ~placeholder:(Some "e.g. 3")
+        ~validator:validate_int
+        ()
+    in
+    {box; next_page = None}
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Validated textbox" in
+    let body = Vtextbox.render s.box ~focus:true in
+    let status =
+      match Vtextbox.validation_result s.box with
+      | Vtextbox.Valid v -> W.green (Printf.sprintf "Valid: %d" v)
+      | Vtextbox.Invalid msg -> W.red ("Error: " ^ msg)
+    in
+    String.concat "\n\n" [header; body; status]
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
+      ->
+        go_home s
+    | Some k ->
+        let key = Miaou.Core.Keys.to_string k in
+        {s with box = Vtextbox.handle_key s.box ~key}
+    | None -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
 module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
 
@@ -1274,6 +1597,11 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
       {title = "Tree Viewer"};
       {title = "Layout Helpers"};
       {title = "Link"};
+      {title = "Checkboxes"};
+      {title = "Radio Buttons"};
+      {title = "Switch"};
+      {title = "Button"};
+      {title = "Validated Textbox"};
       {title = "Breadcrumbs"};
       {title = "Tabs Navigation"};
       {title = "Toast Notifications"};
@@ -1406,25 +1734,50 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           s
     | 13 ->
         goto
+          "demo_checkboxes"
+          (module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 14 ->
+        goto
+          "demo_radio"
+          (module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 15 ->
+        goto
+          "demo_switch"
+          (module Switch_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 16 ->
+        goto
+          "demo_button"
+          (module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 17 ->
+        goto
+          "demo_validated_textbox"
+          (module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 18 ->
+        goto
           "demo_breadcrumbs"
           (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 14 ->
+    | 19 ->
         goto
           "demo_tabs"
           (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 15 ->
+    | 20 ->
         goto
           "demo_toast"
           (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 16 ->
+    | 21 ->
         goto
           "demo_card_sidebar"
           (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 17 ->
+    | 22 ->
         goto
           "demo_spinner"
           (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)

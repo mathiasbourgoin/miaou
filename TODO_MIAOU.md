@@ -24,8 +24,8 @@ Source prompts (octez_setup/prompts/wip_plan):
 - [ ] Demo coverage planning
   - Audit the gallery (`example/demo_lib.ml`, run via `dune exec -- miaou.demo` or `miaou.demo-sdl`) and add TODO entries here for every widget that currently lacks a demo. The goal is to spawn one sub-task per missing widget (not to implement all at once) so that every widget eventually has a labeled, minimal interaction in the launcher.
   - [x] Add demo entry for `Link_widget` (`src/miaou_widgets_navigation/link_widget.{ml,mli}`); simple navigation hint and styling showcase.
-  - [ ] Add demo entry for `Checkbox_widget` (`src/miaou_widgets_input/checkbox_widget.{ml,mli}`); include toggling and disabled state.
-  - [ ] Add demo entry for `Radio_button_widget` (`src/miaou_widgets_input/radio_button_widget.{ml,mli}`); showcase grouped selection.
-  - [ ] Add demo entry for `Switch_widget` (`src/miaou_widgets_input/switch_widget.{ml,mli}`); include on/off animation and key bindings.
-  - [ ] Add demo entry for `Button_widget` (`src/miaou_widgets_input/button_widget.{ml,mli}`); show focus/press states.
-  - [ ] Add demo entry for `Validated_textbox_widget` (`src/miaou_widgets_input/validated_textbox_widget.ml`); include validation error display.
+  - [x] Add demo entry for `Checkbox_widget` (`src/miaou_widgets_input/checkbox_widget.{ml,mli}`); include toggling and disabled state.
+  - [x] Add demo entry for `Radio_button_widget` (`src/miaou_widgets_input/radio_button_widget.{ml,mli}`); showcase grouped selection.
+  - [x] Add demo entry for `Switch_widget` (`src/miaou_widgets_input/switch_widget.{ml,mli}`); include on/off animation and key bindings.
+  - [x] Add demo entry for `Button_widget` (`src/miaou_widgets_input/button_widget.{ml,mli}`); show focus/press states.
+  - [x] Add demo entry for `Validated_textbox_widget` (`src/miaou_widgets_input/validated_textbox_widget.ml`); include validation error display.
