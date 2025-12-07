@@ -841,7 +841,10 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
           prefix ^ Checkbox.render cb ~focus)
         s.boxes
     in
-    String.concat "\n" (W.titleize "Checkboxes" :: items)
+    let hint =
+      W.dim "Tab rotates focus • 1/2/3 toggle • Space/Enter toggles focused • Esc returns"
+    in
+    String.concat "\n" (W.titleize "Checkboxes" :: items @ [hint])
 
   let toggle idx s =
     let boxes =
@@ -1203,7 +1206,7 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let header = W.titleize "Breadcrumbs" in
     let trail = Breadcrumbs.render s.trail ~focus:true in
     let bubble_info =
-      W.dim (Printf.sprintf "Bubbled keys handled by page: %d" s.bubbled)
+      W.dim (Printf.sprintf "Bubbled keys handled by page: %d (press x)" s.bubbled)
     in
     String.concat "\n\n" [header; trail; W.dim s.info; bubble_info]
 
@@ -1585,7 +1588,7 @@ module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let header = W.titleize "Flex layout (Esc returns)" in
     let desc =
       W.dim
-        "Row: px + percent + ratio + fill with gaps | Column: centered children"
+        "Row: px + percent + ratio + fill with gaps | Column: centered children. Resize to see wrap/stretch."
     in
     let row_height =
       if size.LTerm_geom.rows < 20 then 4 else max 4 (size.LTerm_geom.rows / 3)
