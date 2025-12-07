@@ -23,7 +23,7 @@ Source prompts (octez_setup/prompts/wip_plan):
   - Record follow-ups for redesigns if needed.
 - [ ] Demo coverage planning
   - Audit the gallery (`example/demo_lib.ml`, run via `dune exec -- miaou.demo` or `miaou.demo-sdl`) and add TODO entries here for every widget that currently lacks a demo. The goal is to spawn one sub-task per missing widget (not to implement all at once) so that every widget eventually has a labeled, minimal interaction in the launcher.
-  - [ ] Add demo entry for `Link_widget` (`src/miaou_widgets_navigation/link_widget.{ml,mli}`); simple navigation hint and styling showcase.
+  - [x] Add demo entry for `Link_widget` (`src/miaou_widgets_navigation/link_widget.{ml,mli}`); simple navigation hint and styling showcase.
   - [ ] Add demo entry for `Checkbox_widget` (`src/miaou_widgets_input/checkbox_widget.{ml,mli}`); include toggling and disabled state.
   - [ ] Add demo entry for `Radio_button_widget` (`src/miaou_widgets_input/radio_button_widget.{ml,mli}`); showcase grouped selection.
   - [ ] Add demo entry for `Switch_widget` (`src/miaou_widgets_input/switch_widget.{ml,mli}`); include on/off animation and key bindings.

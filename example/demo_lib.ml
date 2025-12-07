@@ -735,6 +735,78 @@ module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let has_modal _ = false
 end
 
+module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  module Link = Miaou_widgets_navigation.Link_widget
+
+  type state = {
+    link : Link.t;
+    target : Link.target;
+    message : string;
+    next_page : string option;
+  }
+
+  type msg = unit
+
+  let init () =
+    let target = Link.Internal "docs" in
+    let link =
+      Link.create ~label:"Open internal page" ~target ~on_navigate:(fun _ -> ())
+    in
+    {
+      link;
+      target;
+      message = "Press Enter or Space to activate";
+      next_page = None;
+    }
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size:_ =
+    let module W = Miaou_widgets_display.Widgets in
+    let header = W.titleize "Link widget" in
+    let body = Link.render s.link ~focus:true in
+    String.concat "\n\n" [header; body; W.dim s.message]
+
+  let go_home s = {s with next_page = Some launcher_page_name}
+
+  let handle_key s key_str ~size:_ =
+    match Miaou.Core.Keys.of_string key_str with
+    | Some k ->
+        let key = Miaou.Core.Keys.to_string k in
+        let link, acted = Link.handle_key s.link ~key in
+        let message =
+          if acted then
+            match s.target with
+            | Link.Internal id -> Printf.sprintf "Navigated to %s" id
+            | Link.External url -> Printf.sprintf "Would open %s" url
+          else s.message
+        in
+        {s with link; message}
+    | None -> s
+
+  let move s _ = s
+
+  let refresh s = s
+
+  let enter s = s
+
+  let service_select s _ = s
+
+  let service_cycle s _ = s
+
+  let handle_modal_key s _ ~size:_ = s
+
+  let next_page s = s.next_page
+
+  (* legacy key_bindings removed *)
+
+  let keymap (_ : state) = []
+
+  let back s = go_home s
+
+  let has_modal _ = false
+end
+
 module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Breadcrumbs = Miaou_widgets_navigation.Breadcrumbs_widget
 
@@ -1201,6 +1273,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
       {title = "Pager Widget"};
       {title = "Tree Viewer"};
       {title = "Layout Helpers"};
+      {title = "Link"};
       {title = "Breadcrumbs"};
       {title = "Tabs Navigation"};
       {title = "Toast Notifications"};
@@ -1328,25 +1401,30 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           s
     | 12 ->
         goto
+          "demo_link"
+          (module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
+          s
+    | 13 ->
+        goto
           "demo_breadcrumbs"
           (module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 13 ->
+    | 14 ->
         goto
           "demo_tabs"
           (module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 14 ->
+    | 15 ->
         goto
           "demo_toast"
           (module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 15 ->
+    | 16 ->
         goto
           "demo_card_sidebar"
           (module Card_sidebar_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
           s
-    | 16 ->
+    | 17 ->
         goto
           "demo_spinner"
           (module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG)
