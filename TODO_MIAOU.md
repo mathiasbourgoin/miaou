@@ -9,7 +9,7 @@ Source prompts (octez_setup/prompts/wip_plan):
 
 ## Tasks
 - [ ] Gardening (M5_90)
-  - Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
+  - [x] Run/update module catalog (`docs/gardening/m5_module_catalog.md`).
   - Deduplicate widget APIs (buttons/renderers), ensure `.mli` coverage, consistent naming/palette hooks.
   - Record follow-ups for redesigns if needed.
 - [x] Flex layout (gap-closing step 1 from `docs/gardening/m5_followups.md`)
