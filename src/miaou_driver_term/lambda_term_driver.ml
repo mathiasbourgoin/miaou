@@ -920,7 +920,13 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     (* Footer cache updated each loop; initialize ref *)
     footer_ref := None ;
     clear_and_render st0 init_stack ;
-    let outcome = loop st0 init_stack in
+    let outcome =
+      try loop st0 init_stack
+      with e ->
+        (* Ensure cleanup runs even on exceptions *)
+        cleanup () ;
+        raise e
+    in
     (* Pop page frame explicitly (semantic symmetry) *)
     (match !page_frame_handle with
     | Some h -> ignore (Khs.pop init_stack h)
