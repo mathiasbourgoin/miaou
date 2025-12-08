@@ -332,8 +332,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     let clear_and_render st key_stack =
       (* Log driver render tick using the Miaou TUI logger if available. *)
       (match Logger_capability.get () with
-      | Some logger -> logger.logf Debug "DRIVER: clear_and_render tick"
-      | None -> ()) ;
+      | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
+          logger.logf Debug "DRIVER: clear_and_render tick"
+      | _ -> ()) ;
       (* Build footer from key handler stack top frame bindings if available. *)
       let size = detect_size () in
       (* Persistent narrow banner: show a small header warning on every render while cols < 80. *)
@@ -1141,7 +1142,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     (* Log initial terminal size on startup *)
     let initial_size = detect_size () in
     (match Logger_capability.get () with
-    | Some logger ->
+    | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
         logger.logf
           Info
           (Printf.sprintf
@@ -1149,7 +1150,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
              initial_size.LTerm_geom.cols
              initial_size.LTerm_geom.rows
              initial_size.LTerm_geom.cols)
-    | None -> ()) ;
+    | _ -> ()) ;
     last_size := initial_size ;
     let st0 = Page.init () in
     (* Initialize refs for pager notifier and register hook. *)

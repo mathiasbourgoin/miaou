@@ -48,8 +48,8 @@ let render_overlay ~(cols : int option) ~base ?rows () =
   dprintf
     "[DEBUG] Modal_renderer.render_overlay: stack_size=%d\n%!"
     (List.length frames) ;
-  (* File log of stack size for external diagnostics *)
-  append_log (Printf.sprintf "RENDERER: stack_size=%d" (List.length frames)) ;
+  if Lazy.force debug_enabled then
+    append_log (Printf.sprintf "RENDERER: stack_size=%d" (List.length frames)) ;
   if frames = [] then None
   else
     (* Deduplicate by title keeping last occurrence *)
@@ -73,7 +73,8 @@ let render_overlay ~(cols : int option) ~base ?rows () =
       "[DEBUG] Modal_renderer.render_overlay: after dedup, rendering %d frames\n\
        %!"
       (List.length frames) ;
-    append_log (Printf.sprintf "RENDERER: after_dedup=%d" (List.length frames)) ;
+    if Lazy.force debug_enabled then
+      append_log (Printf.sprintf "RENDERER: after_dedup=%d" (List.length frames)) ;
     (* Use the shared modal wrapping helper from miaou_internals to keep
        wrapping logic centralized and testable. *)
     let wrap_content_to_width = Modal_utils.wrap_content_to_width in

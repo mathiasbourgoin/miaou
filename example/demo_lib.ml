@@ -9,7 +9,8 @@ let register_all () =
   let () = Miaou_example.Mock_service_lifecycle.register () in
   let () = Miaou_example.Mock_logger.register () in
   let () = Miaou_example.Mock_palette.register () in
-  Printf.printf "miaou example: registered mocks\n"
+  if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+    Printf.printf "miaou example: registered mocks\n"
 
 let ensure_system_capability () = 
   match Miaou_interfaces.System.get () with 
