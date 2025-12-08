@@ -116,7 +116,7 @@ The core runtime dependencies used by MIAOU (also declared in `miaou.opam`):
 - str
 - uri
 - yojson
-- camlimages (for image loading and QR code generation)
+- imagelib (for image loading)
 - qrc (for QR code generation)
 - alcotest (test dependency)
 
