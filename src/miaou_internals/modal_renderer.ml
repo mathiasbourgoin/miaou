@@ -74,7 +74,8 @@ let render_overlay ~(cols : int option) ~base ?rows () =
        %!"
       (List.length frames) ;
     if Lazy.force debug_enabled then
-      append_log (Printf.sprintf "RENDERER: after_dedup=%d" (List.length frames)) ;
+      append_log
+        (Printf.sprintf "RENDERER: after_dedup=%d" (List.length frames)) ;
     (* Use the shared modal wrapping helper from miaou_internals to keep
        wrapping logic centralized and testable. *)
     let wrap_content_to_width = Modal_utils.wrap_content_to_width in
