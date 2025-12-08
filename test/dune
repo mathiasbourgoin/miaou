@@ -88,7 +88,7 @@
 (test
  (name test_drivers_smoke)
  (modules test_drivers_smoke)
- (libraries alcotest miaou.core miaou.driver.term miaou.driver.sdl))
+ (libraries alcotest miaou.driver.term miaou.driver.sdl miaou.runner.common))
 
 (test
  (name test_core_utils)
@@ -166,7 +166,7 @@
 (test
  (name test_core_driver_modal_navigation)
  (modules test_core_driver_modal_navigation)
- (libraries alcotest miaou.core))
+ (libraries alcotest miaou.core miaou.driver.term))
 
 (test
  (name test_navigation_widgets)

@@ -95,56 +95,59 @@ let render_image_sdl_cached t ctx =
   let char_h = ctx.char_h in
   let x_pixels = 10 * char_w in
   let y_pixels = ctx.y_offset + (5 * char_h) in
-  
+
   (* Use texture cache to avoid recreating every frame *)
   let open Tsdl.Sdl in
   let scale = 1 in
   let tex_width = t.width * scale in
   let tex_height = t.height * scale in
-  
+
   (* Check if texture exists and is valid *)
-  let needs_create = 
-    match t.sdl_texture with
-    | None -> true
-    | Some _ -> false
+  let needs_create =
+    match t.sdl_texture with None -> true | Some _ -> false
   in
-  
-  if needs_create then (
-    match
-      create_texture
-        renderer
-        Pixel.format_argb8888
-        Texture.access_target
-        ~w:tex_width
-        ~h:tex_height
-    with
-    | Error _ -> ()
-    | Ok texture ->
-        (* Set texture as render target and draw pixels *)
-        let _ = set_render_target renderer (Some texture) in
-        
-        for py = 0 to t.height - 1 do
-          for px = 0 to t.width - 1 do
-            let pixel = t.pixels.(py).(px) in
-            let _ = set_render_draw_color renderer pixel.r pixel.g pixel.b 255 in
-            let rect = Rect.create ~x:(px * scale) ~y:(py * scale) ~w:scale ~h:scale in
-            let _ = render_fill_rect renderer (Some rect) in
-            ()
-          done
-        done ;
-        
-        (* Restore default render target *)
-        let _ = set_render_target renderer None in
-        t.sdl_texture <- Some texture
-  ) ;
-  
+
+  (if needs_create then
+     match
+       create_texture
+         renderer
+         Pixel.format_argb8888
+         Texture.access_target
+         ~w:tex_width
+         ~h:tex_height
+     with
+     | Error _ -> ()
+     | Ok texture ->
+         (* Set texture as render target and draw pixels *)
+         let _ = set_render_target renderer (Some texture) in
+
+         for py = 0 to t.height - 1 do
+           for px = 0 to t.width - 1 do
+             let pixel = t.pixels.(py).(px) in
+             let _ =
+               set_render_draw_color renderer pixel.r pixel.g pixel.b 255
+             in
+             let rect =
+               Rect.create ~x:(px * scale) ~y:(py * scale) ~w:scale ~h:scale
+             in
+             let _ = render_fill_rect renderer (Some rect) in
+             ()
+           done
+         done ;
+
+         (* Restore default render target *)
+         let _ = set_render_target renderer None in
+         t.sdl_texture <- Some texture) ;
+
   (* Render the texture if it exists *)
-  (match t.sdl_texture with
+  match t.sdl_texture with
   | Some texture ->
-      let dst_rect = Rect.create ~x:x_pixels ~y:y_pixels ~w:tex_width ~h:tex_height in
+      let dst_rect =
+        Rect.create ~x:x_pixels ~y:y_pixels ~w:tex_width ~h:tex_height
+      in
       let _ = render_copy renderer texture ~dst:dst_rect in
       ()
-  | None -> ())
+  | None -> ()
 
 let render ?(crop_center = 1.0) t ~focus:_ =
   (* Check if SDL rendering is available *)
@@ -153,7 +156,7 @@ let render ?(crop_center = 1.0) t ~focus:_ =
   | Some ctx ->
       (* SDL mode: use cached texture rendering *)
       render_image_sdl_cached t ctx ;
-      
+
       (* Return placeholder that reserves space for the image *)
       let placeholder_lines = (t.height / 2) + 5 in
       String.concat "\n" (List.init placeholder_lines (fun _ -> ""))

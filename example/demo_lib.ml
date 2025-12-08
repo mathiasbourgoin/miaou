@@ -2835,13 +2835,10 @@ This demo shows both file loading (PNG) and procedural image generation.
     (* Pre-load logo at init time to enable caching *)
     let logo_result =
       let module W = Miaou_widgets_display.Widgets in
-      let img_width, img_height =
-        match W.get_backend () with `Terminal -> (50, 25) | `Sdl -> (600, 450)
-      in
-      let logo_path =
+      let img_width, img_height, logo_path =
         match W.get_backend () with
-        | `Terminal -> "cropped_miaou_image_small.png"
-        | `Sdl -> "miaou_image_sdl_small.png"
+        | `Terminal -> (50, 25, "example/miaou_logo_small.png")
+        | `Sdl -> (600, 450, "example/miaou_logo_small.png")
       in
       Img.load_from_file
         logo_path
@@ -2858,7 +2855,8 @@ This demo shows both file loading (PNG) and procedural image generation.
     }
 
   let update s = function
-    | KeyPressed ("escape" | "Esc") -> {s with next_page = Some launcher_page_name}
+    | KeyPressed ("escape" | "Esc") ->
+        {s with next_page = Some launcher_page_name}
     | KeyPressed _ -> s
 
   (* Create a simple gradient image *)

@@ -22,7 +22,7 @@
  (public_name miaou.demo)
  (package miaou)
  (modules demo_tui)
- (libraries miaou_demo_lib miaou))
+ (libraries miaou_demo_lib miaou miaou.runner.tui))
 
 (executable
  (name demo_sdl)

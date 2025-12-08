@@ -17,4 +17,4 @@ let () =
     | Some p -> p
     | None -> failwith ("Demo page not registered: " ^ page_name)
   in
-  ignore (Miaou_core.Tui_driver.run page)
+  ignore (Miaou_runner_tui.Runner_tui.run page)

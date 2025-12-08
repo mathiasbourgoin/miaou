@@ -1,5 +1,5 @@
 open Alcotest
-module Driver = Miaou_core.Lambda_term_driver
+module Driver = Miaou_driver_term.Lambda_term_driver
 
 (* Minimal page that starts with a modal which consumes Enter and requests
    navigation to "NEXT" when closed. *)
