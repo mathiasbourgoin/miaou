@@ -24,6 +24,9 @@ module Modal_utils : sig
   val render_with_modal_overlay : view:string -> rows:int -> cols:int -> string
 end
 
+(** Page transition utilities *)
+module Page_transition_utils : module type of Page_transition_utils
+
 (** Signature for backend-specific driver implementations *)
 module type DRIVER_BACKEND = sig
   type size = {rows : int; cols : int}

@@ -12,6 +12,9 @@ module Capture = Miaou_core.Tui_capture
 module Modal_manager = Miaou_core.Modal_manager
 module Registry = Miaou_core.Registry
 module Driver_common = Miaou_driver_common.Driver_common
+
+module Page_transition = Miaou_driver_common.Driver_common.Page_transition_utils
+
 open Miaou_core.Tui_page
 module Ttf = Tsdl_ttf.Ttf
 module Sdl = Tsdl.Sdl
@@ -571,14 +574,19 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
     render_and_draw (module P) st ;
     match poll_event ~timeout_ms:120 ~on_resize:update_size with
     | Quit -> `Quit
-    | Refresh -> (
+    | Refresh ->
         let st' = P.refresh st in
-        match P.next_page st' with
-        | Some "__QUIT__" -> `Quit
-        | Some name -> (
-            match Registry.find name with
-            | Some (module Next : PAGE_SIG) ->
-                let st_to = Next.init () in
+        Page_transition.handle_next_page
+          (module P)
+          st'
+          {
+            on_quit = (fun () -> `Quit);
+            on_same_page = (fun () -> loop (module P) st');
+            on_new_page =
+              (fun (type a)
+                   (module Next : PAGE_SIG with type state = a)
+                   (st_to : a)
+                 ->
                 let size = !size_ref in
                 (* Disable SDL chart rendering during transition text capture *)
                 Miaou_widgets_display.Sdl_chart_context.set_context_obj
@@ -602,10 +610,9 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   ~from_lines:(String.split_on_char '\n' from_text)
                   ~to_lines:(String.split_on_char '\n' to_text)
                   ~size ;
-                loop (module Next) st_to
-            | None -> `Quit)
-        | None -> loop (module P) st')
-    | Key k -> (
+                loop (module Next) st_to);
+          }
+    | Key k ->
         (match Logger_capability.get () with
         | Some logger ->
             logger.logf Debug (Printf.sprintf "SDL driver key=%s" k)
@@ -662,12 +669,17 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           render_and_draw (module P) st' ;
           if k = "q" || k = "Q" then `Quit
           else
-            match P.next_page st' with
-            | Some "__QUIT__" -> `Quit
-            | Some name -> (
-                match Registry.find name with
-                | Some (module Next : PAGE_SIG) ->
-                    let st_to = Next.init () in
+            Page_transition.handle_next_page
+              (module P)
+              st'
+              {
+                on_quit = (fun () -> `Quit);
+                on_same_page = (fun () -> loop (module P) st');
+                on_new_page =
+                  (fun (type a)
+                       (module Next : PAGE_SIG with type state = a)
+                       (st_to : a)
+                     ->
                     let size = !size_ref in
                     (* Disable SDL chart rendering during transition text capture *)
                     Miaou_widgets_display.Sdl_chart_context.set_context_obj
@@ -691,9 +703,8 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                       ~from_lines:(String.split_on_char '\n' from_text)
                       ~to_lines:(String.split_on_char '\n' to_text)
                       ~size ;
-                    loop (module Next) st_to
-                | None -> `Quit)
-            | None -> loop (module P) st')
+                    loop (module Next) st_to);
+              }
   in
   Fun.protect
     ~finally:(fun () ->
