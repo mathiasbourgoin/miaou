@@ -18,7 +18,6 @@ module File_browser_widget = Miaou_widgets_layout.File_browser_widget
 module Pane_layout = Miaou_widgets_layout.Pane_layout
 module Pager_widget = Miaou_widgets_display.Pager_widget
 module Tree_widget = Miaou_widgets_display.Tree_widget
-module Tui_driver = Tui_driver
 module Tui_logger = Tui_logger
 
 (* The following modules are application-specific and are intentionally

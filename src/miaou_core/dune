@@ -12,9 +12,6 @@
   modal_manager
   quit_flag
   registry
-  lambda_term_driver
-  html_driver
-  tui_driver
   tui_capture
   tui_logger
   tui_page
