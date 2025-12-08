@@ -214,6 +214,43 @@ Miaou relies on a capability system so the driver (or host application) can deci
 
 Register your implementations via `Miaou_interfaces.Capability.set` (or the helper `register` functions exposed by each interface) before calling `Miaou.Core.Tui_driver.start`. Tests use the mock implementations in `example/` for reference.
 
+Contextual Help System
+----------------------
+
+MIAOU includes a built-in contextual help system that intercepts the `?` key globally. When users press `?`, the driver displays a help overlay with context-sensitive information.
+
+**Important:** The driver intercepts `?` before your page's or modal's `handle_key` function receives it. You cannot handle `?` in custom key handlers.
+
+To provide contextual help for your page or modal, use the `Help_hint` module:
+
+```ocaml
+(* In your page's view function *)
+let view state ~focus ~size =
+  Help_hint.set (Some "Press Space to toggle, Enter to confirm, Esc to cancel") ;
+  (* ... render your page ... *)
+```
+
+For nested modals, use the stack-based API:
+
+```ocaml
+(* When opening a modal *)
+let init () =
+  Help_hint.push 
+    ~short:"?" 
+    ~long:"Press Esc to close this modal, Space to toggle options" 
+    () ;
+  (* ... *)
+
+(* When closing the modal *)
+let on_close () =
+  Help_hint.pop () ;
+  (* ... *)
+```
+
+The `Help_hint` module automatically handles responsive help text: it provides separate `short` and `long` variants, with the driver selecting the appropriate one based on terminal width.
+
+See `src/miaou_core/help_hint.mli` for the complete API documentation.
+
 Configuration & options
 -----------------------
 
