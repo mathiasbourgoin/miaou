@@ -41,7 +41,11 @@
 (package
  (name miaou-driver-sdl)
  (synopsis "Miaou SDL driver")
- (depends miaou-core)
+ (depends 
+  miaou-core
+  tsdl
+  tsdl-ttf
+  tsdl-image)
  (allow_empty true))
 
 (package
