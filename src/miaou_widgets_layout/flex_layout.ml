@@ -20,12 +20,7 @@ type spacing = {h : int; v : int}
 
 type padding = {left : int; right : int; top : int; bottom : int}
 
-type basis =
-  | Auto
-  | Px of int
-  | Ratio of float
-  | Percent of float
-  | Fill
+type basis = Auto | Px of int | Ratio of float | Percent of float | Fill
 
 type size_hint = {width : int option; height : int option}
 
@@ -77,11 +72,9 @@ let pad_block ?(align : align_items = Start) lines ~width ~height =
   let lines =
     lines
     |> List.map (fun line ->
-           let vis = W.visible_chars_count line in
-           if vis > width then truncate_visible line width else line)
-    |> (function
-         | ls when align = Stretch -> pad_lines ls ~width
-         | ls -> ls)
+        let vis = W.visible_chars_count line in
+        if vis > width then truncate_visible line width else line)
+    |> ( function ls when align = Stretch -> pad_lines ls ~width | ls -> ls )
     |> take height
   in
   let missing = max 0 (height - List.length lines) in
@@ -101,10 +94,10 @@ let compute_sizes direction padding gap size children =
     match direction with
     | Row ->
         size.LTerm_geom.cols - padding.left - padding.right
-        - (max 0 ((List.length children - 1) * gap.h))
+        - max 0 ((List.length children - 1) * gap.h)
     | Column ->
         size.LTerm_geom.rows - padding.top - padding.bottom
-        - (max 0 ((List.length children - 1) * gap.v))
+        - max 0 ((List.length children - 1) * gap.v)
   in
   let fixed, ratios, percents, fills =
     List.fold_left
@@ -115,21 +108,22 @@ let compute_sizes direction padding gap size children =
         | Percent p -> (fix, rat, per +. p, fil)
         | Fill -> (fix, rat, per, fil + 1)
         | Auto -> (fix, rat, per, fil + 1))
-      (0, 0., 0., 0) children
+      (0, 0., 0., 0)
+      children
   in
   let remaining =
-    max 0 (available_main - fixed - int_of_float (percents *. float available_main /. 100.))
+    max
+      0
+      (available_main - fixed
+      - int_of_float (percents *. float available_main /. 100.))
   in
   let alloc_child c =
     match c.basis with
     | Px n -> n
-    | Ratio r when ratios > 0. ->
-        int_of_float (r /. ratios *. float remaining)
+    | Ratio r when ratios > 0. -> int_of_float (r /. ratios *. float remaining)
     | Ratio _ -> 0
-    | Percent p ->
-        int_of_float (p /. 100. *. float available_main)
-    | Fill | Auto ->
-        if fills > 0 then remaining / max 1 fills else remaining
+    | Percent p -> int_of_float (p /. 100. *. float available_main)
+    | Fill | Auto -> if fills > 0 then remaining / max 1 fills else remaining
   in
   List.map alloc_child children
 
@@ -142,7 +136,7 @@ let distribute direction padding justify gap child_sizes size =
   in
   let used =
     List.fold_left ( + ) 0 child_sizes
-    + max 0 ((children - 1) * (if direction = Row then gap.h else gap.v))
+    + max 0 ((children - 1) * if direction = Row then gap.h else gap.v)
   in
   let extra = max 0 (inner - used) in
   match justify with
@@ -155,8 +149,9 @@ let distribute direction padding justify gap child_sizes size =
       if children <= 1 then (0, gap, extra)
       else
         let between =
-          if direction = Row then {gap with h = gap.h + extra / (children - 1)}
-          else {gap with v = gap.v + extra / (children - 1)}
+          if direction = Row then
+            {gap with h = gap.h + (extra / (children - 1))}
+          else {gap with v = gap.v + (extra / (children - 1))}
         in
         (0, between, extra mod max 1 (children - 1))
   | Space_around ->
@@ -165,7 +160,7 @@ let distribute direction padding justify gap child_sizes size =
         if direction = Row then {gap with h = gap.h + lead}
         else {gap with v = gap.v + lead}
       in
-      (lead, between, extra - lead * (children + 1))
+      (lead, between, extra - (lead * (children + 1)))
 
 let render_row t ~size =
   let child_sizes = compute_sizes Row t.padding t.gap size t.children in
@@ -176,15 +171,12 @@ let render_row t ~size =
   let rendered =
     List.map2
       (fun c w ->
-        let child_size =
-          {LTerm_geom.rows = max_h; cols = max 0 w}
-        in
+        let child_size = {LTerm_geom.rows = max_h; cols = max 0 w} in
         let raw = split_lines (c.render ~size:child_size) in
-        let block =
-          pad_block ~align:t.align_items raw ~width:w ~height:max_h
-        in
+        let block = pad_block ~align:t.align_items raw ~width:w ~height:max_h in
         block)
-      t.children child_sizes
+      t.children
+      child_sizes
   in
   let inner_width = size.LTerm_geom.cols - t.padding.left - t.padding.right in
   let lines =
@@ -208,10 +200,9 @@ let render_row t ~size =
           + max 0 ((List.length child_sizes - 1) * gap.h)
         in
         let consumed = leading + used in
-        let remaining =
-          max 0 (inner_width - consumed - trailing_extra)
-        in
-        Buffer.add_string buf
+        let remaining = max 0 (inner_width - consumed - trailing_extra) in
+        Buffer.add_string
+          buf
           (String.make (remaining + t.padding.right + trailing_extra) ' ') ;
         Buffer.contents buf)
   in
@@ -228,12 +219,15 @@ let render_column t ~size =
       (fun c h ->
         let child_size = {LTerm_geom.rows = max 0 h; cols = max_w} in
         let blk =
-          pad_block ~align:t.align_items
+          pad_block
+            ~align:t.align_items
             (split_lines (c.render ~size:child_size))
-            ~width:max_w ~height:h
+            ~width:max_w
+            ~height:h
         in
         blk)
-      t.children child_sizes
+      t.children
+      child_sizes
   in
   let gap_lines =
     if gap.v <= 0 then [] else List.init gap.v (fun _ -> String.make max_w ' ')
@@ -243,12 +237,9 @@ let render_column t ~size =
     | [b] -> b
     | b :: rest -> b @ gap_lines @ interleave rest
   in
-  let rows =
-    size.LTerm_geom.rows - t.padding.top - t.padding.bottom
-  in
+  let rows = size.LTerm_geom.rows - t.padding.top - t.padding.bottom in
   let spaced =
-    interleave blocks
-    |> fun lines ->
+    interleave blocks |> fun lines ->
     let top = List.init leading (fun _ -> String.make max_w ' ') in
     let bottom = List.init trailing_extra (fun _ -> String.make max_w ' ') in
     top @ lines @ bottom
@@ -270,7 +261,8 @@ let render_column t ~size =
               let l = free / 2 in
               (l, free - l)
         in
-        String.make (t.padding.left + left_pad) ' ' ^ trimmed
+        String.make (t.padding.left + left_pad) ' '
+        ^ trimmed
         ^ String.make (t.padding.right + right_pad) ' ')
       all_lines
   in

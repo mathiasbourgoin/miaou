@@ -22,7 +22,9 @@ let test_single_bar () =
 
 let test_multiple_bars () =
   let chart =
-    Bar_chart.create ~width:40 ~height:12
+    Bar_chart.create
+      ~width:40
+      ~height:12
       ~data:[("Mon", 45.0, None); ("Tue", 67.0, None); ("Wed", 82.0, None)]
       ()
   in
@@ -32,16 +34,21 @@ let test_multiple_bars () =
 
 let test_with_title () =
   let chart =
-    Bar_chart.create ~width:30 ~height:10
+    Bar_chart.create
+      ~width:30
+      ~height:10
       ~data:[("A", 10.0, None); ("B", 20.0, None)]
-      ~title:"Test Chart" ()
+      ~title:"Test Chart"
+      ()
   in
   let output = Bar_chart.render chart ~show_values:false ~thresholds:[] () in
   check bool "has title" true (String.contains output 'T')
 
 let test_with_values () =
   let chart =
-    Bar_chart.create ~width:30 ~height:10
+    Bar_chart.create
+      ~width:30
+      ~height:10
       ~data:[("A", 42.5, None); ("B", 73.2, None)]
       ()
   in
@@ -61,9 +68,13 @@ let test_update_data () =
 
 let test_fixed_range () =
   let chart =
-    Bar_chart.create ~width:25 ~height:10
+    Bar_chart.create
+      ~width:25
+      ~height:10
       ~data:[("A", 25.0, None); ("B", 50.0, None); ("C", 75.0, None)]
-      ~min_value:0.0 ~max_value:100.0 ()
+      ~min_value:0.0
+      ~max_value:100.0
+      ()
   in
   let output = Bar_chart.render chart ~show_values:false ~thresholds:[] () in
   check bool "rendered with fixed range" true (String.length output > 50)

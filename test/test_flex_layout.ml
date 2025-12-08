@@ -1,5 +1,4 @@
 open Alcotest
-
 module Flex = Miaou_widgets_layout.Flex_layout
 
 let size cols rows = {LTerm_geom.cols; rows}
@@ -9,9 +8,7 @@ let render_child label =
 
 let leading_spaces s =
   let rec aux i =
-    if i >= String.length s then i
-    else if s.[i] = ' ' then aux (i + 1)
-    else i
+    if i >= String.length s then i else if s.[i] = ' ' then aux (i + 1) else i
   in
   aux 0
 
@@ -19,7 +16,7 @@ let trailing_spaces s =
   let rec aux i =
     if i < 0 then String.length s
     else if s.[i] = ' ' then aux (i - 1)
-    else (String.length s) - i - 1
+    else String.length s - i - 1
   in
   aux (String.length s - 1)
 
@@ -28,7 +25,8 @@ let count_char s ch =
 
 let test_row_layout () =
   let flex =
-    Flex.create ~direction:Flex.Row
+    Flex.create
+      ~direction:Flex.Row
       ~gap:{h = 1; v = 0}
       ~padding:{left = 1; right = 1; top = 0; bottom = 0}
       [render_child "A"; render_child "BB"; render_child "CCC"]
@@ -36,13 +34,17 @@ let test_row_layout () =
   let out = Flex.render flex ~size:(size 20 1) in
   (* Expect padding + children separated by single space gap. *)
   check bool "has padding" true (String.get out 0 = ' ') ;
-  check bool "contains sequence"
+  check
+    bool
+    "contains sequence"
     true
-    (String.contains out 'A' && String.contains out 'B' && String.contains out 'C')
+    (String.contains out 'A' && String.contains out 'B'
+   && String.contains out 'C')
 
 let test_column_layout () =
   let flex =
-    Flex.create ~direction:Flex.Column
+    Flex.create
+      ~direction:Flex.Column
       ~gap:{h = 0; v = 1}
       ~padding:{left = 0; right = 0; top = 0; bottom = 0}
       [render_child "X"; render_child "Y"; render_child "Z"]
@@ -53,7 +55,9 @@ let test_column_layout () =
 
 let test_justify_center () =
   let flex =
-    Flex.create ~direction:Flex.Row ~justify:Flex.Center
+    Flex.create
+      ~direction:Flex.Row
+      ~justify:Flex.Center
       ~gap:{h = 1; v = 0}
       ~padding:{left = 0; right = 0; top = 0; bottom = 0}
       [
@@ -68,7 +72,9 @@ let test_justify_center () =
 
 let test_align_center_column () =
   let flex =
-    Flex.create ~direction:Flex.Column ~align_items:Flex.Center
+    Flex.create
+      ~direction:Flex.Column
+      ~align_items:Flex.Center
       [render_child "X"; render_child "Y"]
   in
   let out = Flex.render flex ~size:(size 6 4) in
@@ -76,21 +82,22 @@ let test_align_center_column () =
   lines
   |> List.filter (fun l -> String.exists (fun c -> c = 'X' || c = 'Y') l)
   |> List.iter (fun line ->
-         let lead = leading_spaces line in
-         let trail = trailing_spaces line in
-         check bool "centered" true (abs (lead - trail) <= 1))
+      let lead = leading_spaces line in
+      let trail = trailing_spaces line in
+      check bool "centered" true (abs (lead - trail) <= 1))
 
 let test_percent_ratio_allocation () =
   let make_child ch basis =
     {
-      Flex.render =
-        (fun ~size -> String.make size.LTerm_geom.cols ch);
+      Flex.render = (fun ~size -> String.make size.LTerm_geom.cols ch);
       basis;
       cross = None;
     }
   in
   let flex =
-    Flex.create ~direction:Flex.Row ~gap:{h = 1; v = 0}
+    Flex.create
+      ~direction:Flex.Row
+      ~gap:{h = 1; v = 0}
       [
         make_child 'A' (Flex.Px 4);
         make_child 'B' (Flex.Percent 50.);
@@ -108,10 +115,11 @@ let () =
     "flex_layout"
     [
       ( "flex_layout",
-        [ test_case "row layout" `Quick test_row_layout;
+        [
+          test_case "row layout" `Quick test_row_layout;
           test_case "column layout" `Quick test_column_layout;
           test_case "justify center" `Quick test_justify_center;
           test_case "align center column" `Quick test_align_center_column;
-          test_case "percent + ratio alloc" `Quick
-            test_percent_ratio_allocation ] );
+          test_case "percent + ratio alloc" `Quick test_percent_ratio_allocation;
+        ] );
     ]

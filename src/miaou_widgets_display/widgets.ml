@@ -158,8 +158,7 @@ let wrap_text ~width s =
             loop "" acc ws
         else
           let ll = visible_chars_count line in
-          if ll + 1 + wl <= width then
-            loop (line ^ " " ^ w) acc ws
+          if ll + 1 + wl <= width then loop (line ^ " " ^ w) acc ws
           else loop "" (line :: acc) (w :: ws)
   in
   loop "" [] words

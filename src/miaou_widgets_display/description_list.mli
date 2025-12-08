@@ -12,8 +12,8 @@ val create :
 
 val set_items : t -> (string * string) list -> t
 
-val render : ?cols:int -> ?wrap:bool -> t -> focus:bool -> string
 (** Render a description list.
     - [cols] total width budget (default 80) used to wrap values.
     - [wrap] when true (default), values wrap to the available width and
       subsequent lines are indented under the key. *)
+val render : ?cols:int -> ?wrap:bool -> t -> focus:bool -> string

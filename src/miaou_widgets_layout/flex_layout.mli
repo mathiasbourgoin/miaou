@@ -15,12 +15,7 @@ type spacing = {h : int; v : int}
 
 type padding = {left : int; right : int; top : int; bottom : int}
 
-type basis =
-  | Auto
-  | Px of int
-  | Ratio of float
-  | Percent of float
-  | Fill
+type basis = Auto | Px of int | Ratio of float | Percent of float | Fill
 
 type size_hint = {width : int option; height : int option}
 
@@ -30,19 +25,12 @@ type child = {
       (** Main-axis size request. [Auto]/[Fill] participate in even splitting of the remaining
           space. [Px] is fixed, [Percent] is relative to the available main size (after padding),
           and [Ratio] distributes the remaining space proportionally across all ratio-based items. *)
-  cross : size_hint option;  (** Optional cross-axis size hint; [None] uses the parent slot. *)
+  cross : size_hint option;
+      (** Optional cross-axis size hint; [None] uses the parent slot. *)
 }
 
 type t
 
-val create :
-  ?direction:direction ->
-  ?align_items:align_items ->
-  ?justify:justify ->
-  ?gap:spacing ->
-  ?padding:padding ->
-  child list ->
-  t
 (** Create a flex container.
 
     - [direction]: main axis, [Row] (horizontal) or [Column] (vertical).
@@ -52,8 +40,15 @@ val create :
     - [padding]: surrounding padding inside the container.
 
     Children are rendered in order; strings longer than their slot are visually truncated. *)
+val create :
+  ?direction:direction ->
+  ?align_items:align_items ->
+  ?justify:justify ->
+  ?gap:spacing ->
+  ?padding:padding ->
+  child list ->
+  t
 
-val render : t -> size:LTerm_geom.size -> string
 (** Render the flex container into a newline-separated string sized to [size].
 
     {[
@@ -67,3 +62,4 @@ val render : t -> size:LTerm_geom.size -> string
     print_string (render row ~size:{cols = 30; rows = 1})
     ]}
 *)
+val render : t -> size:LTerm_geom.size -> string

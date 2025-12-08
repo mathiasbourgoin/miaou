@@ -41,7 +41,7 @@ let test_handle_keys () =
 let test_wrap () =
   let p = Pager.open_lines ~title:"wrap" ["0123456789 abcdefghij"] in
   let rendered = Pager.render ~cols:12 ~win:4 ~wrap:true p ~focus:false in
-  check bool "first chunk present" true (String.contains rendered '0');
+  check bool "first chunk present" true (String.contains rendered '0') ;
   check bool "wrapped chunk present" true (String.contains rendered 'a')
 
 let suite =

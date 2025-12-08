@@ -53,12 +53,9 @@ let test_tabs_snapshot () =
   let rendered = Tabs.render t ~focus:true in
   let expected =
     let pad s = " " ^ s ^ " " in
-    String.concat (W.dim "|")
-      [
-        W.bold (pad "Home");
-        W.dim (pad "Logs");
-        W.dim (pad "Settings");
-      ]
+    String.concat
+      (W.dim "|")
+      [W.bold (pad "Home"); W.dim (pad "Logs"); W.dim (pad "Settings")]
   in
   check string "tabs render with bold+dim separators" expected rendered
 
@@ -84,12 +81,9 @@ let test_breadcrumbs_snapshot () =
   let rendered = Breadcrumbs.render b ~focus:true in
   let expected =
     let sep = W.dim " > " in
-    String.concat sep
-      [
-        W.dim "Root";
-        W.title_highlight (W.bold "Services");
-        W.dim "Node";
-      ]
+    String.concat
+      sep
+      [W.dim "Root"; W.title_highlight (W.bold "Services"); W.dim "Node"]
   in
   check string "breadcrumbs highlight focused crumb" expected rendered
 

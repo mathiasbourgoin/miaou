@@ -1,5 +1,4 @@
 open Alcotest
-
 module Checkbox = Miaou_widgets_input.Checkbox_widget
 module Radio = Miaou_widgets_input.Radio_button_widget
 module Switch = Miaou_widgets_input.Switch_widget
@@ -50,9 +49,7 @@ let first_checkbox_marker state =
     | _title :: checkbox_line :: _ -> checkbox_line
     | _ -> ""
   in
-  let idx =
-    try String.index line '[' with Not_found -> 0
-  in
+  let idx = try String.index line '[' with Not_found -> 0 in
   if String.length line >= idx + 3 then String.sub line idx 3 else ""
 
 let test_checkbox_disabled () =
@@ -79,34 +76,27 @@ let long_tutorial_markdown () =
   let numbered = List.init 80 (fun i -> Printf.sprintf "Line %02d" (i + 1)) in
   String.concat
     "\n"
-    ( "# Long tutorial\n"
-      :: numbered
-      @ [ "Use ↑/↓ to scroll the rest of this tutorial if your terminal height \
-             is limited."
-        ] )
+    (("# Long tutorial\n" :: numbered)
+    @ [
+        "Use ↑/↓ to scroll the rest of this tutorial if your terminal height \
+         is limited.";
+      ])
 
 let test_checkbox_tutorial_scroll () =
   let size = {LTerm_geom.rows = 24; cols = 80} in
   let markdown = long_tutorial_markdown () in
-  Tutorial_modal.set_payload
-    ~title:"Checkbox tutorial"
-    ~markdown ;
+  Tutorial_modal.set_payload ~title:"Checkbox tutorial" ~markdown ;
   let module TM = Tutorial_modal.Page in
   let rec scroll state n =
-    if n <= 0 then state
-    else scroll (TM.handle_key state "Down" ~size) (n - 1)
+    if n <= 0 then state else scroll (TM.handle_key state "Down" ~size) (n - 1)
   in
   let content = TM.view (scroll (TM.init ()) 200) ~focus:true ~size in
   let has_footer =
     String.split_on_char '\n' content
     |> List.exists (fun line ->
-           contains_substring line "Use ↑/↓ to scroll the rest")
+        contains_substring line "Use ↑/↓ to scroll the rest")
   in
-  check
-    bool
-    "tutorial bottom reachable"
-    true
-    has_footer
+  check bool "tutorial bottom reachable" true has_footer
 
 let test_checkbox_tutorial_resize_scroll () =
   let markdown = long_tutorial_markdown () in
@@ -126,9 +116,7 @@ let test_checkbox_tutorial_resize_scroll () =
     true
     (String.split_on_char '\n' content
     |> List.exists (fun line ->
-           contains_substring
-             line
-             "Use ↑/↓ to scroll the rest of this tutorial"))
+        contains_substring line "Use ↑/↓ to scroll the rest of this tutorial"))
 
 let test_radio_disabled () =
   let r = Radio.create ~selected:false ~disabled:true () in
@@ -143,7 +131,10 @@ let test_switch_disabled () =
 let test_button_disabled () =
   let fired = ref 0 in
   let b, pressed =
-    Button.create ~disabled:true ~label:"Save" ~on_click:(fun () -> incr fired)
+    Button.create
+      ~disabled:true
+      ~label:"Save"
+      ~on_click:(fun () -> incr fired)
       ()
     |> fun b -> Button.handle_key b ~key:"Enter"
   in
@@ -157,7 +148,8 @@ let () =
     "input_widgets"
     [
       ( "disabled",
-        [ test_case "checkbox disabled" `Quick test_checkbox_disabled;
+        [
+          test_case "checkbox disabled" `Quick test_checkbox_disabled;
           test_case "checkbox demo enter" `Quick test_checkbox_demo_enter;
           test_case "checkbox demo space" `Quick test_checkbox_demo_space;
           test_case
@@ -170,5 +162,6 @@ let () =
             test_checkbox_tutorial_resize_scroll;
           test_case "radio disabled" `Quick test_radio_disabled;
           test_case "switch disabled" `Quick test_switch_disabled;
-          test_case "button disabled" `Quick test_button_disabled ] );
+          test_case "button disabled" `Quick test_button_disabled;
+        ] );
     ]

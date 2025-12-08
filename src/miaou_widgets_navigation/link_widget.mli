@@ -16,7 +16,7 @@ val create : label:string -> target:target -> on_navigate:(target -> unit) -> t
 val render : t -> focus:bool -> string
 
 val handle_event :
-  ?bubble_unhandled:bool -> t -> key:string -> t * [ `Handled | `Bubble ]
+  ?bubble_unhandled:bool -> t -> key:string -> t * [`Handled | `Bubble]
 
 val handle_key : t -> key:string -> t * bool
 

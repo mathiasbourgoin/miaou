@@ -16,4 +16,10 @@ let test_bubble_when_empty () =
 let () =
   run
     "focus_chain"
-    [("focus", [test_case "cycle" `Quick test_cycle; test_case "empty" `Quick test_bubble_when_empty])]
+    [
+      ( "focus",
+        [
+          test_case "cycle" `Quick test_cycle;
+          test_case "empty" `Quick test_bubble_when_empty;
+        ] );
+    ]

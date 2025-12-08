@@ -9,7 +9,9 @@ let test_wrap () =
   in
   let rendered = DL.render ~cols:20 ~wrap:true widget ~focus:false in
   let lines = String.split_on_char '\n' rendered in
-  check bool "wrapped line present"
+  check
+    bool
+    "wrapped line present"
     true
     (List.exists (fun l -> String.trim l = "Wonderland") lines)
 

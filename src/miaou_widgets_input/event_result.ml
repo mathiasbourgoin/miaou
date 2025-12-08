@@ -5,7 +5,7 @@
 (*                                                                           *)
 (*****************************************************************************)
 
-type t = [ `Handled | `Bubble ]
+type t = [`Handled | `Bubble]
 
 let handled = `Handled
 

@@ -60,8 +60,12 @@ module Page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let view s ~focus:_ ~size =
     let layout = layout_from_size size in
-    with_fit layout s.pager ~focus:true ~win:layout.base_win ~k:(fun rendered _ ->
-        rendered)
+    with_fit
+      layout
+      s.pager
+      ~focus:true
+      ~win:layout.base_win
+      ~k:(fun rendered _ -> rendered)
 
   let handle_key s key_str ~size =
     let layout = layout_from_size size in

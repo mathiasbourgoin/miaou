@@ -72,7 +72,8 @@ let get_cpu_usage () =
           else
             let usage =
               100.0
-              *. (float_of_int (total_diff - idle_diff) /. float_of_int total_diff)
+              *. (float_of_int (total_diff - idle_diff)
+                 /. float_of_int total_diff)
             in
             max 0.0 (min 100.0 usage))
 
@@ -85,12 +86,22 @@ let get_memory_usage () =
         let line = input_line ic in
         if String.length line > 9 && String.sub line 0 9 = "MemTotal:" then
           let parts = String.split_on_char ' ' line in
-          let nums = List.filter (fun s -> s <> "" && s <> "MemTotal:" && s <> "kB") parts in
+          let nums =
+            List.filter
+              (fun s -> s <> "" && s <> "MemTotal:" && s <> "kB")
+              parts
+          in
           let total = match nums with n :: _ -> int_of_string n | _ -> 0 in
           read_lines total mem_available
-        else if String.length line > 13 && String.sub line 0 13 = "MemAvailable:" then
+        else if
+          String.length line > 13 && String.sub line 0 13 = "MemAvailable:"
+        then
           let parts = String.split_on_char ' ' line in
-          let nums = List.filter (fun s -> s <> "" && s <> "MemAvailable:" && s <> "kB") parts in
+          let nums =
+            List.filter
+              (fun s -> s <> "" && s <> "MemAvailable:" && s <> "kB")
+              parts
+          in
           let avail = match nums with n :: _ -> int_of_string n | _ -> 0 in
           read_lines mem_total avail
         else read_lines mem_total mem_available
@@ -126,8 +137,7 @@ let get_network_usage () =
               |> List.filter (fun s -> s <> "")
             in
             match nums with
-            | rx_bytes :: _ ->
-                sum_bytes (total + int_of_string rx_bytes)
+            | rx_bytes :: _ -> sum_bytes (total + int_of_string rx_bytes)
             | _ -> sum_bytes total)
         | _ -> sum_bytes total
       with End_of_file -> total
@@ -165,9 +175,7 @@ let get_uptime () =
     let line = input_line ic in
     close_in ic ;
     let parts = String.split_on_char ' ' line in
-    match parts with
-    | uptime :: _ -> float_of_string uptime
-    | _ -> 0.0
+    match parts with uptime :: _ -> float_of_string uptime | _ -> 0.0
   with _ -> 0.0
 
 (* Get load average *)

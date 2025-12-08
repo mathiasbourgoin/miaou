@@ -6,7 +6,6 @@
 (*****************************************************************************)
 
 open Alcotest
-
 module Sparkline = Miaou_widgets_display.Sparkline_widget
 
 let strip_ansi s =
@@ -33,13 +32,17 @@ let strip_ansi s =
 
 let test_empty_sparkline () =
   let sp = Sparkline.create ~width:10 ~max_points:10 () in
-  let output = Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] () in
+  let output =
+    Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()
+  in
   check string "empty sparkline" (String.make 10 ' ') output
 
 let test_single_value () =
   let sp = Sparkline.create ~width:10 ~max_points:10 () in
   Sparkline.push sp 50.0 ;
-  let output = Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] () in
+  let output =
+    Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()
+  in
   (* Single value should be centered with middle block *)
   let has_block =
     try
@@ -54,7 +57,10 @@ let test_ascending_values () =
   for i = 0 to 7 do
     Sparkline.push sp (float_of_int i)
   done ;
-  let output = strip_ansi (Sparkline.render sp ~focus:true ~show_value:false ~thresholds:[] ()) in
+  let output =
+    strip_ansi
+      (Sparkline.render sp ~focus:true ~show_value:false ~thresholds:[] ())
+  in
   (* Should have ascending blocks:  ▂▃▄▅▆▇█ *)
   check string "ascending" " ▂▃▄▅▆▇█" output
 
@@ -63,7 +69,10 @@ let test_descending_values () =
   for i = 7 downto 0 do
     Sparkline.push sp (float_of_int i)
   done ;
-  let output = strip_ansi (Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()) in
+  let output =
+    strip_ansi
+      (Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ())
+  in
   (* Should have descending blocks: █▇▆▅▄▃▂  *)
   check string "descending" "█▇▆▅▄▃▂ " output
 
@@ -72,7 +81,9 @@ let test_flat_line () =
   for _ = 1 to 5 do
     Sparkline.push sp 42.0
   done ;
-  let output = Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] () in
+  let output =
+    Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()
+  in
   (* Flat line should render middle block *)
   check string "flat line" "▄▄▄▄▄" output
 
@@ -91,16 +102,19 @@ let test_circular_buffer () =
 let test_show_value () =
   let sp = Sparkline.create ~width:5 ~max_points:5 () in
   Sparkline.push sp 42.3 ;
-  let output = Sparkline.render sp ~focus:false ~show_value:true ~thresholds:[] () in
+  let output =
+    Sparkline.render sp ~focus:false ~show_value:true ~thresholds:[] ()
+  in
   (* Should contain the value *)
   check bool "contains value" true (String.contains output '4')
 
 let test_render_with_label () =
   let sp = Sparkline.create ~width:5 ~max_points:5 () in
   Sparkline.push sp 78.0 ;
-  let output = Sparkline.render_with_label sp ~label:"CPU" ~focus:false ~thresholds:[] () in
-  check bool "contains label" true
-    (String.length output > 0 && output.[0] = 'C') ;
+  let output =
+    Sparkline.render_with_label sp ~label:"CPU" ~focus:false ~thresholds:[] ()
+  in
+  check bool "contains label" true (String.length output > 0 && output.[0] = 'C') ;
   check bool "contains brackets" true (String.contains output '[')
 
 let test_fixed_min_max () =
@@ -110,7 +124,10 @@ let test_fixed_min_max () =
   Sparkline.push sp 0.0 ;
   Sparkline.push sp 50.0 ;
   Sparkline.push sp 100.0 ;
-  let output = strip_ansi (Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()) in
+  let output =
+    strip_ansi
+      (Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ())
+  in
   (* Should scale to fixed range: 0→min ( ), 50→mid (▄), 100→max (█) *)
   check string "fixed scaling" " ▄█" output
 
@@ -118,7 +135,9 @@ let test_clear () =
   let sp = Sparkline.create ~width:5 ~max_points:5 () in
   Sparkline.push sp 42.0 ;
   Sparkline.clear sp ;
-  let output = Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] () in
+  let output =
+    Sparkline.render sp ~focus:false ~show_value:false ~thresholds:[] ()
+  in
   check string "cleared" (String.make 5 ' ') output
 
 let suite =

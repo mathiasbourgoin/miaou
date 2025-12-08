@@ -24,7 +24,7 @@ val move : t -> [`Left | `Right | `First | `Last] -> t
 val select : t -> id:string -> t
 
 val handle_event :
-  ?bubble_unhandled:bool -> t -> key:string -> t * [ `Handled | `Bubble ]
+  ?bubble_unhandled:bool -> t -> key:string -> t * [`Handled | `Bubble]
 
 val handle_key : t -> key:string -> t
 
