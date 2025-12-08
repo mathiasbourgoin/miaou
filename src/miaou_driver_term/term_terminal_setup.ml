@@ -35,12 +35,16 @@ let setup_and_cleanup () =
       cleanup_done := true ;
       (* Disable xterm mouse tracking modes - do this first before terminal restore *)
       (try
+         (* Disable all common mouse tracking modes *)
          print_string
            "\027[?1000l\027[?1002l\027[?1003l\027[?1005l\027[?1006l\027[?1015l" ;
+         (* Also send a hard reset sequence as fallback *)
+         print_string "\027[?1000l\027[?1006l" ;
+         Stdlib.flush stdout ;
          Stdlib.flush stdout
        with _ -> ()) ;
       (* Small delay to ensure escape sequences are processed *)
-      (try Unix.sleepf 0.01 with _ -> ()) ;
+      (try Unix.sleepf 0.05 with _ -> ()) ;
       try restore () with _ -> ())
   in
   let install_signal_handlers () =
