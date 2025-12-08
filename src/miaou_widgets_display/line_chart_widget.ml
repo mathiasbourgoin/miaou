@@ -31,9 +31,7 @@ let create ~width ~height ~series ?title ?(axis_config = default_axis_config) ()
 
 let update_series t ~label ~points =
   let series =
-    List.map
-      (fun s -> if s.label = label then {s with points} else s)
-      t.series
+    List.map (fun s -> if s.label = label then {s with points} else s) t.series
   in
   {t with series}
 
@@ -56,12 +54,11 @@ let make_grid width height =
       Array.init width (fun _ -> {char = " "; style = None}))
 
 let set_cell grid x y char =
-  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0)
-  then grid.(y).(x).char <- char
+  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0) then
+    grid.(y).(x).char <- char
 
 let set_cell_styled grid x y char style =
-  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0)
-  then (
+  if y >= 0 && y < Array.length grid && x >= 0 && x < Array.length grid.(0) then (
     grid.(y).(x).char <- char ;
     grid.(y).(x).style <- Some style)
 
@@ -76,7 +73,8 @@ let map_y y y_min y_max height =
   if range = 0. then height / 2
   else
     (* Invert Y because terminal coordinates go top-down *)
-    height - 1 - int_of_float ((y -. y_min) /. range *. float_of_int (height - 1))
+    height - 1
+    - int_of_float ((y -. y_min) /. range *. float_of_int (height - 1))
 
 (* Simplified line drawing *)
 let draw_line grid x1 y1 x2 y2 char style =
@@ -143,14 +141,14 @@ let get_color ~thresholds ~series_color (point : point) : string option =
   let a = List.sort (fun a b -> Float.compare b.value a.value) thresholds in
   match point.color with
   | Some _ -> point.color
-  | None ->
-    (match List.find_opt (fun t -> point.y > t.value) a with
-    | Some t -> Some t.color
-    | None -> series_color)
+  | None -> (
+      match List.find_opt (fun t -> point.y > t.value) a with
+      | Some t -> Some t.color
+      | None -> series_color)
 
 (* Plot a single series *)
-let plot_series grid (series : series) x_min x_max y_min y_max width height symbol
-    ~thresholds =
+let plot_series grid (series : series) x_min x_max y_min y_max width height
+    symbol ~thresholds =
   List.iteri
     (fun idx (point : point) ->
       let x = map_x point.x x_min x_max width in
@@ -185,10 +183,10 @@ let render t ~show_axes ~show_grid ?(thresholds = []) () =
   let x_min, x_max, y_min, y_max = calculate_bounds t.series in
 
   (* Render grid lines first (background) *)
-  (if show_grid then render_grid_lines grid t) ;
+  if show_grid then render_grid_lines grid t ;
 
   (* Render axes *)
-  (if show_axes then render_axes grid t x_min x_max y_min y_max) ;
+  if show_axes then render_axes grid t x_min x_max y_min y_max ;
 
   (* Plot symbols for different series *)
   let symbols = [|"●"; "■"; "▲"; "◆"; "★"|] in
@@ -197,7 +195,16 @@ let render t ~show_axes ~show_grid ?(thresholds = []) () =
   List.iteri
     (fun idx series ->
       let symbol = symbols.(idx mod Array.length symbols) in
-      plot_series grid series x_min x_max y_min y_max t.width t.height symbol
+      plot_series
+        grid
+        series
+        x_min
+        x_max
+        y_min
+        y_max
+        t.width
+        t.height
+        symbol
         ~thresholds)
     t.series ;
 
@@ -205,12 +212,12 @@ let render t ~show_axes ~show_grid ?(thresholds = []) () =
   let lines =
     Array.to_list grid
     |> List.map (fun row ->
-           Array.to_list row
-           |> List.map (fun cell ->
-                  match cell.style with
-                  | Some style -> W.ansi style cell.char
-                  | None -> cell.char)
-           |> String.concat "")
+        Array.to_list row
+        |> List.map (fun cell ->
+            match cell.style with
+            | Some style -> W.ansi style cell.char
+            | None -> cell.char)
+        |> String.concat "")
   in
 
   (* Add title if present *)

@@ -40,15 +40,16 @@
     v}
 *)
 
-type point = {x : float; y : float; color : string option}
 (** A 2D data point with an optional override color. *)
+type point = {x : float; y : float; color : string option}
 
-type series = {label : string; points : point list; color : string option}
 (** A data series with a label, points, and optional default color for its points(ANSI color code). *)
+type series = {label : string; points : point list; color : string option}
 
-type threshold = {value : float; color : string}
 (** A threshold for coloring points above a certain value. *)
+type threshold = {value : float; color : string}
 
+(** Axis configuration for labels and tick marks. *)
 type axis_config = {
   show_labels : bool;
   x_label : string;
@@ -56,11 +57,16 @@ type axis_config = {
   x_ticks : int;
   y_ticks : int;
 }
-(** Axis configuration for labels and tick marks. *)
 
-type t
 (** The line chart widget type. *)
+type t
 
+(** Create a line chart.
+    - [width] Chart width in characters.
+    - [height] Chart height in rows.
+    - [series] List of data series to plot.
+    - [title] Optional chart title.
+    - [axis_config] Optional axis configuration (default: no labels, 5 ticks each). *)
 val create :
   width:int ->
   height:int ->
@@ -69,20 +75,7 @@ val create :
   ?axis_config:axis_config ->
   unit ->
   t
-(** Create a line chart.
-    - [width] Chart width in characters.
-    - [height] Chart height in rows.
-    - [series] List of data series to plot.
-    - [title] Optional chart title.
-    - [axis_config] Optional axis configuration (default: no labels, 5 ticks each). *)
 
-val render :
-  t ->
-  show_axes:bool ->
-  show_grid:bool ->
-  ?thresholds:threshold list ->
-  unit ->
-  string
 (** Render the chart.
     - [show_axes] Whether to draw axes with ticks and labels.
     - [show_grid] Whether to draw background grid lines.
@@ -91,21 +84,28 @@ val render :
       colored with the threshold's [color]. If multiple thresholds are
       exceeded, the one with the highest value is used. Point-specific
       colors and series colors have precedence. *)
+val render :
+  t ->
+  show_axes:bool ->
+  show_grid:bool ->
+  ?thresholds:threshold list ->
+  unit ->
+  string
 
-val update_series : t -> label:string -> points:point list -> t
 (** Update a series by label. Returns updated chart. *)
+val update_series : t -> label:string -> points:point list -> t
 
-val add_point : t -> label:string -> point:point -> t
 (** Add a single point to a series. Returns updated chart. *)
+val add_point : t -> label:string -> point:point -> t
 
-val set_axis_config : t -> axis_config -> t
 (** Configure axes. Returns updated chart. *)
+val set_axis_config : t -> axis_config -> t
 
-val get_series : t -> series list
 (** Get all series from the chart. *)
+val get_series : t -> series list
 
-val get_title : t -> string option
 (** Get the chart title. *)
+val get_title : t -> string option
 
-val get_dimensions : t -> int * int
 (** Get chart dimensions: (width, height). *)
+val get_dimensions : t -> int * int

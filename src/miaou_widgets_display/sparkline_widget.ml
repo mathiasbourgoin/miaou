@@ -78,9 +78,7 @@ let render t ~focus ~show_value ?color ?(thresholds = []) () =
       let block_idx = normalize value min_val max_val in
       let block = blocks.(block_idx) in
       let c = get_color ~thresholds ~default_color:color value in
-      match c with
-      | Some color -> W.ansi color block
-      | None -> block
+      match c with Some color -> W.ansi color block | None -> block
     in
 
     (* Render sparkline blocks *)
@@ -95,14 +93,18 @@ let render t ~focus ~show_value ?color ?(thresholds = []) () =
        done
      else if point_count = t.width then
        (* Perfect fit: render all points *)
-       List.iter (fun value -> Buffer.add_string buf (render_value value)) values
+       List.iter
+         (fun value -> Buffer.add_string buf (render_value value))
+         values
      else
        (* Pad with spaces if fewer points than width *)
        let pad_left = (t.width - point_count) / 2 in
        Buffer.add_string buf (String.make pad_left ' ') ;
-       List.iter (fun value -> Buffer.add_string buf (render_value value)) values ;
+       List.iter
+         (fun value -> Buffer.add_string buf (render_value value))
+         values ;
        let pad_right = t.width - point_count - pad_left in
-       Buffer.add_string buf (String.make pad_right ' '));
+       Buffer.add_string buf (String.make pad_right ' ')) ;
 
     let sparkline = Buffer.contents buf in
     let sparkline = if focus then W.bold sparkline else sparkline in

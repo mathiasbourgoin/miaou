@@ -41,15 +41,24 @@
     v}
 *)
 
-type bar = string * float * string option
 (** A bar with a label, a value, and an optional color. *)
+type bar = string * float * string option
 
-type threshold = {value : float; color : string}
 (** A threshold for coloring bars with a value above it. *)
+type threshold = {value : float; color : string}
 
-type t
 (** The bar chart widget type. *)
+type t
 
+(** Create a vertical bar chart.
+    - [width] Chart width in characters.
+    - [height] Chart height in rows.
+    - [data] List of bars to display. Each bar is a tuple of
+      [(label, value, optional_color)].
+    - [title] Optional chart title.
+    - [color] Optional default ANSI color code for bars.
+    - [min_value] Optional fixed minimum (default: 0 or data min).
+    - [max_value] Optional fixed maximum (default: auto-scale to data max). *)
 val create :
   width:int ->
   height:int ->
@@ -60,17 +69,7 @@ val create :
   ?max_value:float ->
   unit ->
   t
-(** Create a vertical bar chart.
-    - [width] Chart width in characters.
-    - [height] Chart height in rows.
-    - [data] List of bars to display. Each bar is a tuple of
-      [(label, value, optional_color)].
-    - [title] Optional chart title.
-    - [color] Optional default ANSI color code for bars.
-    - [min_value] Optional fixed minimum (default: 0 or data min).
-    - [max_value] Optional fixed maximum (default: auto-scale to data max). *)
 
-val render : t -> show_values:bool -> ?thresholds:threshold list -> unit -> string
 (** Render the bar chart.
     - [show_values] If true, display numeric values on or above bars.
     - [thresholds] Optional list of thresholds for coloring bars.
@@ -79,9 +78,11 @@ val render : t -> show_values:bool -> ?thresholds:threshold list -> unit -> stri
       exceeded, the one with the highest value is used. Bar-specific
       colors have precedence over threshold colors, which have precedence
       over the default color. *)
+val render :
+  t -> show_values:bool -> ?thresholds:threshold list -> unit -> string
 
-val update_data : t -> data:bar list -> t
 (** Update the chart data. Returns updated chart. *)
+val update_data : t -> data:bar list -> t
 
-val set_default_color : t -> color:string -> t
 (** Set the default bar color. Returns updated chart. *)
+val set_default_color : t -> color:string -> t

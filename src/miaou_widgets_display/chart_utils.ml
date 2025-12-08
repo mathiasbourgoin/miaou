@@ -25,7 +25,8 @@ let format_value value =
   else if abs_val >= 10. then Printf.sprintf "%.1f" value
   else Printf.sprintf "%.2f" value
 
-let format_label ~value ~unit_ = Printf.sprintf "%s%s" (format_value value) unit_
+let format_label ~value ~unit_ =
+  Printf.sprintf "%s%s" (format_value value) unit_
 
 let tick_positions ~count ~max =
   if count <= 0 then []

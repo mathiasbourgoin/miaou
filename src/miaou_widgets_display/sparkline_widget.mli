@@ -23,12 +23,17 @@
     Output: [ ▃▄▆▇█▇▅▃▂ ▂▃▅▆▇█▇▆▄▃▂ ] 42.3%
 *)
 
-type threshold = {value : float; color : string}
 (** A threshold for coloring sparkline segments with a value above it. *)
+type threshold = {value : float; color : string}
 
-type t
 (** The sparkline widget type. *)
+type t
 
+(** Create a sparkline with fixed width.
+    - [width] Display width in characters.
+    - [max_points] Maximum data points to retain (circular buffer).
+    - [min_value] Optional fixed minimum for scaling (default: auto-scale).
+    - [max_value] Optional fixed maximum for scaling (default: auto-scale). *)
 val create :
   width:int ->
   max_points:int ->
@@ -36,24 +41,11 @@ val create :
   ?max_value:float ->
   unit ->
   t
-(** Create a sparkline with fixed width.
-    - [width] Display width in characters.
-    - [max_points] Maximum data points to retain (circular buffer).
-    - [min_value] Optional fixed minimum for scaling (default: auto-scale).
-    - [max_value] Optional fixed maximum for scaling (default: auto-scale). *)
 
-val push : t -> float -> unit
 (** Add a data point to the sparkline. Older points are dropped when
     [max_points] is exceeded. *)
+val push : t -> float -> unit
 
-val render :
-  t ->
-  focus:bool ->
-  show_value:bool ->
-  ?color:string ->
-  ?thresholds:threshold list ->
-  unit ->
-  string
 (** Render the sparkline using block characters ( ▂▃▄▅▆▇█).
     - [focus] Whether to highlight (bold/color).
     - [show_value] If true, append current value as text.
@@ -62,7 +54,17 @@ val render :
       Segments with a value greater than a threshold's [value] will be
       colored with the threshold's [color]. If multiple thresholds are
       exceeded, the one with the highest value is used. *)
+val render :
+  t ->
+  focus:bool ->
+  show_value:bool ->
+  ?color:string ->
+  ?thresholds:threshold list ->
+  unit ->
+  string
 
+(** Render with a label prefix.
+    Example: "CPU: [ ▂▃▄▅▆▇█] 78%" *)
 val render_with_label :
   t ->
   label:string ->
@@ -71,20 +73,18 @@ val render_with_label :
   ?thresholds:threshold list ->
   unit ->
   string
-(** Render with a label prefix.
-    Example: "CPU: [ ▂▃▄▅▆▇█] 78%" *)
 
-val stats : t -> float * float * float
 (** Get current statistics: (min, max, current). *)
+val stats : t -> float * float * float
 
-val clear : t -> unit
 (** Clear all data points. *)
+val clear : t -> unit
 
-val get_data : t -> float list
 (** Get all data points as a list. *)
+val get_data : t -> float list
 
-val get_bounds : t -> float * float * float
 (** Get bounds and current value: (min, max, current). *)
+val get_bounds : t -> float * float * float
 
-val is_empty : t -> bool
 (** Check if sparkline has no data. *)
+val is_empty : t -> bool

@@ -18,26 +18,35 @@ type sdl_context = {
   char_w : int;
   char_h : int;
   mutable y_offset : int;
-  enabled : bool; (* Set to false during transitions to avoid duplicate rendering *)
+  enabled : bool;
+      (* Set to false during transitions to avoid duplicate rendering *)
   cols : int; (* Terminal width in columns *)
+  frame_id : int; (* Increments each frame *)
 }
 
 let current_context : sdl_context option ref = ref None
 
-let set_context_obj ~renderer ~font ~char_w ~char_h ~y_offset ~cols ?(enabled=true) () =
-  current_context := Some {
-    renderer_obj = Obj.repr renderer;
-    font_obj = Obj.repr font;
-    char_w;
-    char_h;
-    y_offset;
-    enabled;
-    cols;
-  }
+let frame_counter = ref 0
+
+let set_context_obj ~renderer ~font ~char_w ~char_h ~y_offset ~cols
+    ?(enabled = true) () =
+  incr frame_counter ;
+  current_context :=
+    Some
+      {
+        renderer_obj = Obj.repr renderer;
+        font_obj = Obj.repr font;
+        char_w;
+        char_h;
+        y_offset;
+        enabled;
+        cols;
+        frame_id = !frame_counter;
+      }
 
 let clear_context () = current_context := None
 
-let get_context () = 
+let get_context () =
   match !current_context with
   | Some ctx when ctx.enabled -> Some ctx
   | _ -> None
@@ -46,3 +55,5 @@ let get_context () =
 let get_renderer ctx = Obj.obj ctx.renderer_obj
 
 let get_font ctx = Obj.obj ctx.font_obj
+
+let get_frame_id ctx = ctx.frame_id

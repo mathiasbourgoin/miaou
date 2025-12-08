@@ -41,14 +41,10 @@ let calculate_bounds t =
   let values = List.map (fun (_, v, _) -> v) t.data in
   let data_min, data_max = Chart_utils.bounds values in
   let min_val =
-    match t.min_value with
-    | Some v -> v
-    | None -> min 0.0 data_min
+    match t.min_value with Some v -> v | None -> min 0.0 data_min
   in
   let max_val =
-    match t.max_value with
-    | Some v -> v
-    | None -> max 1.0 data_max
+    match t.max_value with Some v -> v | None -> max 1.0 data_max
   in
   (min_val, max_val)
 
@@ -89,13 +85,14 @@ let render t ~show_values ?(thresholds = []) () =
           let bar_height =
             if range = 0. then t.height
             else
-              int_of_float
-                (((value -. min_val) /. range) *. float_of_int t.height)
+              int_of_float ((value -. min_val) /. range *. float_of_int t.height)
           in
-          let color = get_color ~thresholds ~default_color:t.color (value, bar_color) in
+          let color =
+            get_color ~thresholds ~default_color:t.color (value, bar_color)
+          in
           let bar_char = if W.prefer_ascii () then "█" else "█" in
           let top_char = if W.prefer_ascii () then "▀" else "▀" in
-          
+
           let segment =
             if row < bar_height then
               let s = String.make bar_width bar_char.[0] in
@@ -103,30 +100,29 @@ let render t ~show_values ?(thresholds = []) () =
             else if row = bar_height && value > y_val_at_row then
               let s = String.make bar_width top_char.[0] in
               match color with Some c -> W.ansi c s | None -> s
-            else
-              String.make bar_width ' '
+            else String.make bar_width ' '
           in
-          Buffer.add_string line_buf segment) 
-        t.data ; 
+          Buffer.add_string line_buf segment)
+        t.data ;
       lines := Buffer.contents line_buf :: !lines
     done ;
-    
+
     (* X-axis labels *)
     let labels_line = Buffer.create t.width in
     List.iter
       (fun (label, _, _) ->
         let truncated =
-          if String.length label > bar_width then
-            String.sub label 0 bar_width
+          if String.length label > bar_width then String.sub label 0 bar_width
           else label
         in
         let padding = max 0 (bar_width - String.length truncated) / 2 in
         Buffer.add_string labels_line (String.make padding ' ') ;
         Buffer.add_string labels_line truncated ;
-        Buffer.add_string labels_line
+        Buffer.add_string
+          labels_line
           (String.make (bar_width - String.length truncated - padding) ' '))
       t.data ;
-    lines := (Buffer.contents labels_line) :: !lines;
+    lines := Buffer.contents labels_line :: !lines ;
 
     (* Add values on top of bars *)
     if show_values then (
@@ -134,14 +130,16 @@ let render t ~show_values ?(thresholds = []) () =
       List.iter
         (fun (_, value, _) ->
           let s = Printf.sprintf "%.1f" value in
-          let s = if String.length s > bar_width then String.sub s 0 bar_width else s in
+          let s =
+            if String.length s > bar_width then String.sub s 0 bar_width else s
+          in
           let padding = max 0 (bar_width - String.length s) / 2 in
           Buffer.add_string values_line (String.make padding ' ') ;
           Buffer.add_string values_line s ;
-          Buffer.add_string values_line
+          Buffer.add_string
+            values_line
             (String.make (bar_width - String.length s - padding) ' '))
         t.data ;
-      lines := (Buffer.contents values_line) :: !lines
-    );
+      lines := Buffer.contents values_line :: !lines) ;
 
     String.concat "\n" !lines
