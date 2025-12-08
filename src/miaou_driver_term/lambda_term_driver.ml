@@ -51,7 +51,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
   let run_with_page (module Page : PAGE_SIG) =
     (* Ensure widgets render with terminal-friendly glyphs when using the lambda-term backend. *)
     Miaou_widgets_display.Widgets.set_backend `Terminal ;
-    let fd, enter_raw, cleanup, install_signal_handlers =
+    let fd, enter_raw, cleanup, install_signal_handlers, signal_exit_flag =
       Term_terminal_setup.setup_and_cleanup ()
     in
     let () = at_exit cleanup in
@@ -517,6 +517,11 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
        a pending state transformation applied after dispatch. *)
     let pending_update : (Page.state -> Page.state) option ref = ref None in
     let rec loop st key_stack =
+      (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
+      if Atomic.get signal_exit_flag then (
+        (* Don't call cleanup() here - let it run via at_exit for proper cleanup timing *)
+        `SwitchTo "__EXIT__")
+      else (
       (* Refresh refs for pager notifier to see current state/key_stack snapshots. *)
       current_state_ref := Some st ;
       current_key_stack_ref := key_stack ;
@@ -874,7 +879,7 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               | Some page -> `SwitchTo page
               | None ->
                   clear_and_render st' key_stack ;
-                  loop st' key_stack')
+                  loop st' key_stack'))
     in
 
     enter_raw () ;

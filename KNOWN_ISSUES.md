@@ -17,14 +17,32 @@
 
 **Symptoms:** After pressing Ctrl+C in a demo, the terminal reports "unbound keyseq mouse" errors when using the mouse wheel.
 
-**Cause:** Signal handlers that cleanup mouse tracking modes are installed, but in some cases (especially with nested signal handlers or when running under debuggers), the cleanup may not execute.
+**Cause:** The TUI enables xterm mouse tracking (modes 1000 and 1006) at startup. Mouse tracking must be properly disabled when the application exits.
 
-**Solutions:**
-1. Run `reset` command to restore terminal to default state
-2. Or manually disable mouse tracking: `printf '\033[?1000l\033[?1002l\033[?1003l'`
-3. Use proper exit methods (Esc key, q key) instead of Ctrl+C when possible
+**Fix Applied:**
 
-**Status:** The drivers properly install signal handlers for cleanup. This issue may be environment-specific or related to how the demo is terminated.
+The **actual root cause** was the `mouse_cleanup_done` flag preventing cleanup from running when it mattered most:
+
+1. During normal operation (e.g., page navigation), `cleanup()` was being called and set `mouse_cleanup_done = true`
+2. When Ctrl+C was pressed, the signal handler called `cleanup()` again
+3. The flag check prevented mouse cleanup from running: `if not !mouse_cleanup_done then ...`
+4. Result: Mouse tracking stayed enabled!
+
+**Solution:**
+- **Removed the `mouse_cleanup_done` flag entirely**
+- Mouse cleanup now runs **every time** `cleanup()` is called
+- Disabling mouse tracking is idempotent (safe to do multiple times)
+- Signal handler runs cleanup synchronously, ensuring it completes before process termination
+- Multi-method approach: writes escape sequences to /dev/tty, stdout, and stderr
+- 200ms delay after sending sequences to give terminal time to process
+
+**Technical Details:**
+- Restore terminal to canonical mode BEFORE disabling mouse tracking
+- Write directly to /dev/tty using `Unix.write` (bypasses stdio buffering)
+- Use `Unix.tcdrain` to ensure bytes are transmitted to terminal hardware
+- Triple-redundancy writes to handle edge cases
+
+**Status:** ✅ FIXED. Tested and confirmed working in terminator, kitty, and konsole.
 
 ## Help Hint Documentation
 
