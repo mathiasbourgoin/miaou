@@ -94,15 +94,17 @@ let render t ~show_values ?(thresholds = []) () =
           let top_char = if W.prefer_ascii () then "▀" else "▀" in
 
           let segment =
-            if row < bar_height then
-              let s = String.make bar_width bar_char.[0] in
-              match color with Some c -> W.ansi c s | None -> s
+            if row < bar_height then String.make bar_width bar_char.[0]
             else if row = bar_height && value > y_val_at_row then
-              let s = String.make bar_width top_char.[0] in
-              match color with Some c -> W.ansi c s | None -> s
+              String.make bar_width top_char.[0]
             else String.make bar_width ' '
           in
-          Buffer.add_string line_buf segment)
+          let styled_segment =
+            if row <= bar_height && value > y_val_at_row then
+              match color with Some c -> W.ansi c segment | None -> segment
+            else segment
+          in
+          Buffer.add_string line_buf styled_segment)
         t.data ;
       lines := Buffer.contents line_buf :: !lines
     done ;

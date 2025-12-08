@@ -4,6 +4,7 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
+
 type t = {
   http_get_string : string -> string -> string -> (string, string) result;
   http_get_url : string -> string -> string -> (string, string) result;
