@@ -14,9 +14,19 @@
   bar_chart_widget
   chart_utils
   sdl_chart_context
+  image_widget
+  image_widget_sdl
   widgets
   palette
   palette_sdl)
  (instrumentation
   (backend bisect_ppx))
- (libraries yojson str miaou.helpers miaou.interfaces tsdl))
+ (libraries
+  yojson
+  str
+  miaou.helpers
+  miaou.interfaces
+  tsdl
+  qrc
+  imagelib
+  imagelib.unix))

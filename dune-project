@@ -21,6 +21,8 @@
   rresult
  uri
  yojson
+ imagelib
+ qrc
  (alcotest :with-test)
  (bisect_ppx :with-test)))
 
