@@ -46,6 +46,8 @@ let has_trailing_reset = Miaou_helpers.Helpers.has_trailing_reset
 
 let insert_before_reset = Miaou_helpers.Helpers.insert_before_reset
 
+let pad_to_width = Miaou_helpers.Helpers.pad_to_width
+
 let use_ascii_borders =
   lazy
     (let env_val =
@@ -379,12 +381,7 @@ let render_frame ~title ?(header = []) ?cols ~body ~footer () : string =
         let byte_idx = visible_byte_index_of_pos l (max 0 (cols - 1)) in
         let prefix = String.sub l 0 byte_idx in
         prefix ^ "…"
-      else
-        let rec build acc =
-          if visible_chars_count acc >= cols then acc
-          else build (insert_before_reset acc " ")
-        in
-        build l
+      else pad_to_width l cols ' '
     in
     String.concat "\n" (List.map pad_line lines)
   in
@@ -415,12 +412,7 @@ let pad_to_cols_line ~cols (s : string) : string =
     let byte_idx = visible_byte_index_of_pos s (max 0 (cols - 1)) in
     let prefix = String.sub s 0 byte_idx in
     prefix ^ "…"
-  else
-    let rec build acc =
-      if visible_chars_count acc >= cols then acc
-      else build (insert_before_reset acc " ")
-    in
-    build s
+  else pad_to_width s cols ' '
 
 let warning_banner ~cols msg = pad_to_cols_line ~cols (chip_warn msg)
 
