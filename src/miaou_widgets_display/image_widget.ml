@@ -159,7 +159,11 @@ let render ?(crop_center = 1.0) t ~focus:_ =
 
       (* Return placeholder that reserves space for the image *)
       let placeholder_lines = (t.height / 2) + 5 in
-      String.concat "\n" (List.init placeholder_lines (fun _ -> ""))
+      let buf = Buffer.create (placeholder_lines * 2) in
+      for i = 0 to placeholder_lines - 1 do
+        if i > 0 then Buffer.add_char buf '\n'
+      done;
+      Buffer.contents buf
   | None ->
       (* Terminal mode: use colored half-blocks *)
       let crop_width = int_of_float (float_of_int t.width *. crop_center) in
@@ -170,13 +174,13 @@ let render ?(crop_center = 1.0) t ~focus:_ =
       let upper_half = if W.prefer_ascii () then "#" else "▀" in
       let full_block = if W.prefer_ascii () then "#" else "█" in
 
-      let lines = ref [] in
       let char_height = (crop_height + 1) / 2 in
       (* 2 pixels per char row *)
+      let result_buf = Buffer.create (char_height * (crop_width * 20 + 1)) in
 
       for char_y = 0 to char_height - 1 do
-        let line = Buffer.create (crop_width * 20) in
-        (* estimate with ANSI codes *)
+        if char_y > 0 then Buffer.add_char result_buf '\n';
+        
         for x = 0 to crop_width - 1 do
           let pixel_y_upper = crop_y + (char_y * 2) in
           let pixel_y_lower = pixel_y_upper + 1 in
@@ -186,41 +190,40 @@ let render ?(crop_center = 1.0) t ~focus:_ =
           let has_lower = pixel_y_lower < t.height && pixel_x < t.width in
 
           match (has_upper, has_lower) with
-          | false, false -> Buffer.add_char line ' '
+          | false, false -> Buffer.add_char result_buf ' '
           | true, false ->
               (* Only upper pixel *)
               let pixel = t.pixels.(pixel_y_upper).(pixel_x) in
-              Buffer.add_string line (pixel_to_ansi_fg pixel) ;
-              Buffer.add_string line full_block ;
-              Buffer.add_string line ansi_reset
+              Buffer.add_string result_buf (pixel_to_ansi_fg pixel) ;
+              Buffer.add_string result_buf full_block ;
+              Buffer.add_string result_buf ansi_reset
           | false, true ->
               (* Only lower pixel *)
               let pixel = t.pixels.(pixel_y_lower).(pixel_x) in
-              Buffer.add_string line (pixel_to_ansi_fg pixel) ;
-              Buffer.add_string line full_block ;
-              Buffer.add_string line ansi_reset
+              Buffer.add_string result_buf (pixel_to_ansi_fg pixel) ;
+              Buffer.add_string result_buf full_block ;
+              Buffer.add_string result_buf ansi_reset
           | true, true ->
               (* Both pixels *)
               let upper_pixel = t.pixels.(pixel_y_upper).(pixel_x) in
               let lower_pixel = t.pixels.(pixel_y_lower).(pixel_x) in
               if upper_pixel = lower_pixel then (
                 (* Same color, use full block *)
-                Buffer.add_string line (pixel_to_ansi_fg upper_pixel) ;
-                Buffer.add_string line full_block ;
-                Buffer.add_string line ansi_reset)
+                Buffer.add_string result_buf (pixel_to_ansi_fg upper_pixel) ;
+                Buffer.add_string result_buf full_block ;
+                Buffer.add_string result_buf ansi_reset)
               else (
                 (* Different colors, use half-block with fg+bg *)
-                Buffer.add_string line (pixel_to_ansi_fg upper_pixel) ;
-                Buffer.add_string line (pixel_to_ansi_bg lower_pixel) ;
-                Buffer.add_string line upper_half ;
-                Buffer.add_string line ansi_reset)
+                Buffer.add_string result_buf (pixel_to_ansi_fg upper_pixel) ;
+                Buffer.add_string result_buf (pixel_to_ansi_bg lower_pixel) ;
+                Buffer.add_string result_buf upper_half ;
+                Buffer.add_string result_buf ansi_reset)
         done ;
-        Buffer.add_string line ansi_reset ;
+        Buffer.add_string result_buf ansi_reset
         (* Ensure reset at end of line *)
-        lines := Buffer.contents line :: !lines
       done ;
 
-      String.concat "\n" (List.rev !lines)
+      Buffer.contents result_buf
 
 let get_dimensions t = (t.width, t.height)
 
