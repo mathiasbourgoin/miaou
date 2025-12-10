@@ -68,3 +68,25 @@ let insert_before_reset s tail =
     let prefix = String.sub s 0 (l - 4) in
     prefix ^ tail ^ "\027[0m"
   else s ^ tail
+
+let pad_to_width s target_width pad_char =
+  let v = visible_chars_count s in
+  if v >= target_width then s
+  else
+    let needed = target_width - v in
+    let l = String.length s in
+    if has_trailing_reset s then
+      let buf = Buffer.create (l + needed + 4) in
+      Buffer.add_substring buf s 0 (l - 4);
+      for _ = 1 to needed do
+        Buffer.add_char buf pad_char
+      done;
+      Buffer.add_string buf "\027[0m";
+      Buffer.contents buf
+    else
+      let buf = Buffer.create (l + needed) in
+      Buffer.add_string buf s;
+      for _ = 1 to needed do
+        Buffer.add_char buf pad_char
+      done;
+      Buffer.contents buf
