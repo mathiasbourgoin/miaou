@@ -3423,3 +3423,69 @@ let page : Miaou.Core.Registry.page =
 let register_page () =
   if not (Miaou.Core.Registry.exists launcher_page_name) then
     Miaou.Core.Registry.register launcher_page_name page
+
+type 'size bench_case = {
+  name : string;
+  run : size:'size -> int;
+}
+
+type bench = LTerm_geom.size bench_case
+
+let bench_size : LTerm_geom.size = {LTerm_geom.rows = 40; cols = 120}
+
+let make_page_case name (module P : Miaou.Core.Tui_page.PAGE_SIG) =
+  let run ~size =
+    let state = P.init () in
+    String.length (P.view state ~focus:false ~size)
+  in
+  {name; run}
+
+let bench_cases : bench list =
+  [
+    make_page_case "table" (module Table_demo_page);
+    make_page_case "poly_table" (module Poly_table_demo_page);
+    make_page_case "pager" (module Pager_demo_page);
+    make_page_case "layout" (module Layout_demo_page);
+    make_page_case "flex" (module Flex_demo_page);
+    make_page_case "toast" (module Toast_demo_page);
+    make_page_case "spinner" (module Spinner_progress_demo_page);
+    make_page_case "sparkline" (module Sparkline_demo_page);
+    make_page_case "line_chart" (module Line_chart_demo_page);
+    make_page_case "bar_chart" (module Bar_chart_demo_page);
+  ]
+
+let bench_names () = List.map (fun c -> c.name) bench_cases
+
+let run_bench_case ~count case =
+  let rec loop i acc =
+    if i = count then acc
+    else
+      let bytes = case.run ~size:bench_size in
+      loop (i + 1) (acc + bytes)
+  in
+  let start = Unix.gettimeofday () in
+  let bytes = loop 0 0 in
+  let elapsed = Unix.gettimeofday () -. start in
+  Printf.printf
+    "%s iterations=%d bytes=%d time=%.3fs\n"
+    case.name
+    count
+    bytes
+    elapsed ;
+  flush stdout
+
+let run_bench ~target ~count =
+  let selected =
+    if String.equal target "all" then bench_cases
+    else
+      match List.find_opt (fun c -> String.equal c.name target) bench_cases with
+      | Some c -> [c]
+      | None ->
+          let available = String.concat ", " (bench_names ()) in
+          invalid_arg
+            (Printf.sprintf
+               "Unknown bench '%s'. Available: %s or 'all'"
+               target
+               available)
+  in
+  List.iter (run_bench_case ~count) selected
