@@ -18,3 +18,5 @@ val visible_byte_index_of_pos : string -> int -> int
 val has_trailing_reset : string -> bool
 
 val insert_before_reset : string -> string -> string
+
+val pad_to_width : string -> int -> char -> string
