@@ -2267,6 +2267,319 @@ This demo shows sine/cosine waves. Press Space to add more points.
   let has_modal _ = false
 end
 
+module Diagnostics_dashboard_page : Miaou.Core.Tui_page.PAGE_SIG = struct
+  (** Advanced diagnostics dashboard demonstrating:
+      - Ring buffer data recording for time-windowed metrics
+      - Histogram-based percentile calculations (p50, p90, p99)
+      - Real-time multi-chart visualization with colored thresholds *)
+
+  module Line_chart = Miaou_widgets_display.Line_chart_widget
+  module W = Miaou_widgets_display.Widgets
+
+  module Ring_buffer = struct
+    type t = {
+      data : float array;
+      mutable write_pos : int;
+      mutable count : int;
+      capacity : int;
+    }
+
+    let create capacity =
+      {data = Array.make capacity 0.0; write_pos = 0; count = 0; capacity}
+
+    let push buffer value =
+      buffer.data.(buffer.write_pos) <- value ;
+      buffer.write_pos <- (buffer.write_pos + 1) mod buffer.capacity ;
+      buffer.count <- min (buffer.count + 1) buffer.capacity
+
+    let to_list buffer =
+      if buffer.count = 0 then []
+      else
+        let start =
+          if buffer.count < buffer.capacity then 0 else buffer.write_pos
+        in
+        List.init buffer.count (fun i ->
+            buffer.data.((start + i) mod buffer.capacity))
+
+    let clear buffer =
+      buffer.write_pos <- 0 ;
+      buffer.count <- 0
+
+    let size buffer = buffer.count
+  end
+
+  module Histogram = struct
+    type t = {
+      buckets : int array;
+      min_value : float;
+      max_value : float;
+      bucket_width : float;
+      mutable total_count : int;
+    }
+
+    let create ~min_value ~max_value ~num_buckets =
+      let bucket_width = (max_value -. min_value) /. float_of_int num_buckets in
+      {
+        buckets = Array.make num_buckets 0;
+        min_value;
+        max_value;
+        bucket_width;
+        total_count = 0;
+      }
+
+    let add hist value =
+      let value = max hist.min_value (min hist.max_value value) in
+      let bucket_idx =
+        int_of_float ((value -. hist.min_value) /. hist.bucket_width)
+      in
+      let bucket_idx = min bucket_idx (Array.length hist.buckets - 1) in
+      hist.buckets.(bucket_idx) <- hist.buckets.(bucket_idx) + 1 ;
+      hist.total_count <- hist.total_count + 1
+
+    let percentile hist p =
+      if hist.total_count = 0 then 0.0
+      else
+        let target_count = int_of_float (float_of_int hist.total_count *. p) in
+        let rec find_bucket acc idx =
+          if idx >= Array.length hist.buckets then hist.max_value
+          else
+            let acc = acc + hist.buckets.(idx) in
+            if acc >= target_count then
+              hist.min_value +. (float_of_int idx *. hist.bucket_width)
+              +. (hist.bucket_width /. 2.0)
+            else find_bucket acc (idx + 1)
+        in
+        find_bucket 0 0
+
+    let clear hist =
+      Array.fill hist.buckets 0 (Array.length hist.buckets) 0 ;
+      hist.total_count <- 0
+  end
+
+  type metric_tracker = {
+    name : string;
+    ring_buffer : Ring_buffer.t;
+    histogram : Histogram.t;
+    mutable last_value : float;
+    color : string;
+  }
+
+  type state = {
+    bg_queue : metric_tracker;
+    services : metric_tracker;
+    render_latency : metric_tracker;
+    input_lag : metric_tracker;
+    mutable refresh_counter : int;
+    refresh_interval : int;
+    next_page : string option;
+  }
+
+  type msg = unit
+
+  let create_metric ~name ~window_size ~min_value ~max_value ~color =
+    {
+      name;
+      ring_buffer = Ring_buffer.create window_size;
+      histogram = Histogram.create ~min_value ~max_value ~num_buckets:50;
+      last_value = 0.0;
+      color;
+    }
+
+  let record_value metric value =
+    Ring_buffer.push metric.ring_buffer value ;
+    Histogram.add metric.histogram value ;
+    metric.last_value <- value
+
+  let simulate_metrics state =
+    (* Simulate background queue with occasional spikes *)
+    let bg_queue_value =
+      if Random.int 10 = 0 then Random.float 80.0 +. 20.0
+      else Random.float 30.0 +. 5.0
+    in
+    record_value state.bg_queue bg_queue_value ;
+    (* Simulate active services count (slowly varying) *)
+    let services_value =
+      let prev = state.services.last_value in
+      let delta = Random.float 4.0 -. 2.0 in
+      max 5.0 (min 40.0 (prev +. delta))
+    in
+    record_value state.services services_value ;
+    (* Simulate render latency with occasional GC pauses *)
+    let render_latency_value =
+      if Random.int 20 = 0 then Random.float 50.0 +. 40.0
+      else Random.float 20.0 +. 5.0
+    in
+    record_value state.render_latency render_latency_value ;
+    (* Simulate input lag (usually low, occasional spikes) *)
+    let input_lag_value =
+      if Random.int 15 = 0 then Random.float 20.0 +. 15.0
+      else Random.float 5.0 +. 1.0
+    in
+    record_value state.input_lag input_lag_value
+
+  let render_metric_chart ~width ~height metric =
+    let points = Ring_buffer.to_list metric.ring_buffer in
+    if List.length points = 0 then ""
+    else
+      let chart_points =
+        List.mapi
+          (fun i value ->
+            let color =
+              if value > 80.0 then Some "91" else None
+            in
+            {Line_chart.x = float_of_int i; y = value; color})
+          points
+      in
+      let series =
+        {
+          Line_chart.label = metric.name;
+          points = chart_points;
+          color = Some metric.color;
+        }
+      in
+      let thresholds = [
+        {Line_chart.value = 60.0; color = "33"};
+        {Line_chart.value = 80.0; color = "31"};
+      ] in
+      let chart =
+        Line_chart.create ~width ~height ~series:[series] ~title:metric.name ()
+      in
+      Line_chart.render chart ~show_axes:true ~show_grid:false ~thresholds ()
+
+  let render_statistics metric =
+    if Ring_buffer.size metric.ring_buffer = 0 then
+      Printf.sprintf "%s: No data" metric.name
+    else
+      let p50 = Histogram.percentile metric.histogram 0.50 in
+      let p90 = Histogram.percentile metric.histogram 0.90 in
+      let p99 = Histogram.percentile metric.histogram 0.99 in
+      let current = metric.last_value in
+      let current_str =
+        if current > 80.0 then
+          Printf.sprintf "\027[91m%.1f\027[0m" current
+        else if current > 60.0 then
+          Printf.sprintf "\027[33m%.1f\027[0m" current
+        else
+          Printf.sprintf "\027[%sm%.1f\027[0m" metric.color current
+      in
+      Printf.sprintf
+        "%s: cur=%s | p50=%.1f | p90=%.1f | p99=%.1f"
+        metric.name current_str p50 p90 p99
+
+  let init () =
+    Random.self_init () ;
+    let dashboard = {
+      bg_queue = create_metric
+        ~name:"BG Queue Depth"
+        ~window_size:60
+        ~min_value:0.0
+        ~max_value:100.0
+        ~color:"34";
+      services = create_metric
+        ~name:"Active Services"
+        ~window_size:60
+        ~min_value:0.0
+        ~max_value:50.0
+        ~color:"32";
+      render_latency = create_metric
+        ~name:"Render Latency (ms)"
+        ~window_size:60
+        ~min_value:0.0
+        ~max_value:100.0
+        ~color:"33";
+      input_lag = create_metric
+        ~name:"Input Lag (ms)"
+        ~window_size:60
+        ~min_value:0.0
+        ~max_value:50.0
+        ~color:"36";
+      refresh_counter = 0;
+      refresh_interval = 5;
+      next_page = None;
+    } in
+    (* Generate some initial data *)
+    for _ = 1 to 30 do
+      simulate_metrics dashboard
+    done ;
+    dashboard
+
+  let update s (_ : msg) = s
+
+  let view s ~focus:_ ~size =
+    let chart_height = max 8 ((size.LTerm_geom.rows - 15) / 4) in
+    let chart_width = min (size.LTerm_geom.cols - 4) 100 in
+    
+    let header = W.titleize "Diagnostics Dashboard" in
+    let bg_chart = render_metric_chart ~width:chart_width ~height:chart_height s.bg_queue in
+    let services_chart = render_metric_chart ~width:chart_width ~height:chart_height s.services in
+    let render_chart = render_metric_chart ~width:chart_width ~height:chart_height s.render_latency in
+    let input_chart = render_metric_chart ~width:chart_width ~height:chart_height s.input_lag in
+    
+    let separator = String.make chart_width '─' in
+    let stats_header = W.bold "Statistics (Percentiles)" in
+    let stats = String.concat "\n" [
+      render_statistics s.bg_queue;
+      render_statistics s.services;
+      render_statistics s.render_latency;
+      render_statistics s.input_lag;
+    ] in
+    let hint = W.dim "Press 'r' to refresh, 'c' to clear history, Esc to return" in
+    
+    String.concat "\n" [
+      header; "";
+      bg_chart;
+      separator;
+      services_chart;
+      separator;
+      render_chart;
+      separator;
+      input_chart;
+      separator;
+      stats_header;
+      stats;
+      "";
+      hint;
+    ]
+
+  let handle_key s key_str ~size:_ =
+    match key_str with
+    | "Escape" -> {s with next_page = Some launcher_page_name}
+    | "r" | "R" ->
+        simulate_metrics s ;
+        s
+    | "c" | "C" ->
+        Ring_buffer.clear s.bg_queue.ring_buffer ;
+        Ring_buffer.clear s.services.ring_buffer ;
+        Ring_buffer.clear s.render_latency.ring_buffer ;
+        Ring_buffer.clear s.input_lag.ring_buffer ;
+        Histogram.clear s.bg_queue.histogram ;
+        Histogram.clear s.services.histogram ;
+        Histogram.clear s.render_latency.histogram ;
+        Histogram.clear s.input_lag.histogram ;
+        s
+    | _ -> s
+
+  let move s _ = s
+
+  let refresh s =
+    s.refresh_counter <- s.refresh_counter + 1 ;
+    if s.refresh_counter >= s.refresh_interval then (
+      s.refresh_counter <- 0 ;
+      simulate_metrics s
+    ) ;
+    s
+
+  let enter s = s
+  let service_select s _ = s
+  let service_cycle s _ = s
+  let handle_modal_key s _ ~size:_ = s
+  let next_page s = s.next_page
+  let keymap (_ : state) = []
+  let handled_keys () = []
+  let back s = {s with next_page = Some launcher_page_name}
+  let has_modal _ = false
+end
+
 module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Sparkline = Miaou_widgets_display.Sparkline_widget
   module Line_chart = Miaou_widgets_display.Line_chart_widget
@@ -3368,6 +3681,13 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
             (module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG);
       };
       {
+        title = "Diagnostics Dashboard";
+        open_demo =
+          goto
+            "demo_diagnostics"
+            (module Diagnostics_dashboard_page : Miaou.Core.Tui_page.PAGE_SIG);
+      };
+      {
         title = "QR Code";
         open_demo =
           goto
@@ -3633,6 +3953,7 @@ let bench_cases : bench list =
     line_chart_braille_case;
     make_page_case "bar_chart" (module Bar_chart_demo_page);
     bar_chart_braille_case;
+    make_page_case "diagnostics" (module Diagnostics_dashboard_page);
     make_page_case "tree" (module Tree_demo_page);
     make_page_case "breadcrumbs" (module Breadcrumbs_demo_page);
     make_page_case "tabs" (module Tabs_demo_page);

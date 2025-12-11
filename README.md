@@ -182,7 +182,6 @@ Examples
 ```sh
 dune exec -- miaou.demo             # TUI-only demo (lambda-term)
 dune exec -- miaou.demo-sdl         # SDL demo with enhanced graphics
-dune exec -- miaou.diagnostics-demo # Advanced diagnostics dashboard example
 dune exec -- miaou-runner-tui       # generic runner forcing TUI
 dune exec -- miaou-runner-native    # generic runner preferring SDL
 ```
@@ -199,6 +198,7 @@ MIAOU_SDL_TRANSITION=explode MIAOU_DRIVER=sdl \
 The demo includes several example pages showcasing different widgets:
 
 - **System Monitor**: Real-time system metrics (CPU, memory, network) with live sparkline and line chart visualization
+- **Diagnostics Dashboard**: Production-ready monitoring dashboard with ring buffers, histogram-based percentiles (p50/p90/p99), and multi-chart visualization
 - **Chart Demo**: Interactive demonstrations of sparkline, line chart, and bar chart widgets
 - **Image Viewer**: Display PNG images with terminal (Unicode block) or SDL (pixel-perfect) rendering
 - **QR Code Generator**: Generate QR codes with URL encoding
@@ -209,22 +209,7 @@ The demo includes several example pages showcasing different widgets:
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
 
-### Advanced Example: Diagnostics Dashboard
-
-The `example/diagnostics_dashboard.ml` demonstrates production-ready patterns for building real-time monitoring dashboards:
-
-- **Ring Buffers**: Efficient sliding-window data structures for time-series metrics
-- **Histogram-based Percentiles**: O(1) p50/p90/p99 calculations without sorting
-- **Multi-chart Visualization**: Multiple colored line charts with threshold-based coloring
-- **Color Best Practices**: Proper use of ANSI SGR codes and color precedence rules
-- **State Management**: Incremental updates and auto-refresh patterns
-
-Run it with:
-```sh
-dune exec -- miaou.diagnostics-demo
-```
-
-This example shows how to build professional monitoring UIs using only stock Miaou widgets, with no custom rendering required. See the source code for detailed comments on each pattern.
+The diagnostics dashboard demonstrates advanced patterns for building real-time monitoring dashboards with ring buffers, histogram-based percentiles, multi-chart visualization, and proper ANSI color usage. Access it from the main demo launcher menu.
 
 ### Color Usage Guide
 
