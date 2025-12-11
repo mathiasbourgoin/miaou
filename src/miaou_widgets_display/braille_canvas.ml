@@ -142,23 +142,8 @@ let render t =
   for y = 0 to t.height - 1 do
     if y > 0 then Buffer.add_char buf '\n' ;
     for x = 0 to t.width - 1 do
-      let pattern = t.cells.(y).(x) in
-      let unicode_point = braille_base + pattern in
-      (* Convert Unicode code point to UTF-8 *)
-      if unicode_point <= 0x7F then Buffer.add_char buf (Char.chr unicode_point)
-      else if unicode_point <= 0x7FF then (
-        Buffer.add_char buf (Char.chr (0xC0 lor (unicode_point lsr 6))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor (unicode_point land 0x3F))))
-      else if unicode_point <= 0xFFFF then (
-        Buffer.add_char buf (Char.chr (0xE0 lor (unicode_point lsr 12))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor (unicode_point land 0x3F))))
-      else (
-        (* Should not happen for braille (U+2800–U+28FF) but handle it *)
-        Buffer.add_char buf (Char.chr (0xF0 lor (unicode_point lsr 18))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor ((unicode_point lsr 12) land 0x3F))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor ((unicode_point lsr 6) land 0x3F))) ;
-        Buffer.add_char buf (Char.chr (0x80 lor (unicode_point land 0x3F))))
+      (* Use precomputed UTF-8 encoded glyph for significant speedup *)
+      Buffer.add_string buf braille_glyphs.(t.cells.(y).(x))
     done
   done ;
   Buffer.contents buf
