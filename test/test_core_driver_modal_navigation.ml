@@ -57,6 +57,8 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       | _ -> ()) ;
       s
 
+    let keymap _ = []
+    let handled_keys () = []
     let next_page _ = None
 
     let has_modal _ = false

@@ -221,3 +221,7 @@
  (name test_braille_canvas)
  (modules test_braille_canvas)
  (libraries alcotest miaou.widgets.display))
+
+(test
+ (name test_registry_validation)
+ (libraries miaou alcotest str))
