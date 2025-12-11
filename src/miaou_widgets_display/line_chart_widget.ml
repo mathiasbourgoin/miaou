@@ -254,7 +254,18 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       (* Use braille canvas for higher resolution *)
       let canvas = Braille_canvas.create ~width:t.width ~height:t.height in
       let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
-      let styles = Array.make_matrix height_cells width_cells None in
+      let has_colors =
+        thresholds <> []
+        || List.exists
+             (fun (s : series) ->
+               s.color <> None
+               || List.exists (fun (p : point) -> p.color <> None) s.points)
+             t.series
+      in
+      let styles =
+        if has_colors then Some (Array.make_matrix height_cells width_cells None)
+        else None
+      in
       let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
       let x_min, x_max, y_min, y_max = calculate_bounds t.series in
       let x_range = x_max -. x_min in
@@ -283,15 +294,14 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       in
 
       (* Plot each series *)
-      let set_style_for_dot x y color =
-        let cell_x = x / 2 in
-        let cell_y = y / 4 in
-        if cell_y < height_cells && cell_x < width_cells then
-          styles.(cell_y).(cell_x) <- color
-      in
-
       let set_styled_dot x y color =
-        set_style_for_dot x y color ;
+        (match styles with
+        | Some s ->
+            let cell_x = x / 2 in
+            let cell_y = y / 4 in
+            if cell_y < height_cells && cell_x < width_cells then
+              s.(cell_y).(cell_x) <- color
+        | None -> ()) ;
         Braille_canvas.set_dot canvas ~x ~y
       in
 
@@ -317,13 +327,17 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
       List.iter
         (fun series ->
           let sorted_thresholds =
-            List.sort (fun a b -> Float.compare b.value a.value) thresholds
+            if has_colors then
+              List.sort (fun a b -> Float.compare b.value a.value) thresholds
+            else []
           in
           let get_color_cached (point : point) : string option =
             match point.color with
             | Some c -> Some c
             | None -> (
-                match List.find_opt (fun t -> point.y > t.value) sorted_thresholds with
+                match
+                  List.find_opt (fun t -> point.y > t.value) sorted_thresholds
+                with
                 | Some t -> Some t.color
                 | None -> (series : series).color)
           in
@@ -331,7 +345,7 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
             (fun idx point ->
               let x = map_x point.x in
               let y = map_y point.y in
-              let color = get_color_cached point in
+              let color = if has_colors then get_color_cached point else None in
               set_styled_dot x y color ;
               (* Draw line to next point *)
               match List.nth_opt series.points (idx + 1) with
@@ -343,7 +357,11 @@ let render t ~show_axes ~show_grid ?(thresholds = []) ?(mode = ASCII) () =
             series.points)
         t.series ;
 
-      let chart_output = Chart_utils.render_braille_with_colors canvas styles in
+      let chart_output =
+        match styles with
+        | Some s -> Chart_utils.render_braille_with_colors canvas s
+        | None -> Braille_canvas.render canvas
+      in
 
       (* Add title if present *)
       match t.title with
