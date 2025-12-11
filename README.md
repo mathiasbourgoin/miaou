@@ -581,3 +581,93 @@ Further reading
 ## Project home
 
 The temporary public home for MIAOU is https://gitlab.com/mbourgoin/miaou, maintained by Nomadic Labs (<contact@nomadic-labs.com>). Please open issues and feature requests there.
+
+## Global Keys API
+
+Miaou provides a type-safe global keys system to prevent key binding conflicts and enable auto-generated help.
+
+### Key Types
+
+The `Keys` module defines all supported key types:
+
+```ocaml
+type Keys.t =
+  | Up | Down | Left | Right
+  | PageUp | PageDown | Home | End
+  | Tab | ShiftTab | Enter | Escape | Backspace | Delete
+  | Char of string
+  | Control of string
+  | Function of int
+```
+
+### Global Reserved Keys
+
+The following keys are **reserved for application-wide functionality** and cannot be used by individual pages:
+
+- `Control "s"` → Settings
+- `Char "?"` → Help
+- `Control "m"` → Menu  
+- `Control "q"` → Quit
+
+### Declaring Page Keys
+
+Pages must declare which keys they handle using the `handled_keys` function:
+
+```ocaml
+module My_page : Tui_page.PAGE_SIG = struct
+  (* ... other page functions ... *)
+  
+  let handled_keys () = [
+    Keys.Char "a";      (* Handle 'a' key *)
+    Keys.Char "b";      (* Handle 'b' key *)
+    Keys.Enter;         (* Handle Enter *)
+    Keys.Up;            (* Handle Up arrow *)
+    Keys.Function 1;    (* Handle F1 *)
+  ]
+end
+```
+
+### Automatic Conflict Detection
+
+When you register a page, Miaou automatically validates that:
+
+1. **No global key conflicts**: Pages cannot handle reserved global keys
+2. **Clear error messages**: Violations fail fast with helpful errors
+
+```ocaml
+(* This will fail at registration time: *)
+module Bad_page = struct
+  let handled_keys () = [Keys.Control "q"]  (* Reserved for Quit! *)
+end
+
+(* Runtime error: *)
+(* "Page 'bad' attempts to handle reserved global keys: C-Q. *)
+(*  Global keys are reserved for application-wide functionality." *)
+```
+
+### Checking for Conflicts Between Pages
+
+You can check for key conflicts across all registered pages:
+
+```ocaml
+(* Get list of conflicts *)
+let conflicts = Registry.check_all_conflicts () in
+List.iter (fun (key, pages) ->
+  Printf.printf "Key '%s' handled by: %s\n" 
+    key (String.concat ", " pages)
+) conflicts
+
+(* Or get a human-readable report *)
+match Registry.conflict_report () with
+| None -> print_endline "No conflicts!"
+| Some report -> print_endline report
+```
+
+### Benefits
+
+- ✅ **Type-safe**: Keys are variants, not strings
+- ✅ **Compile-time safety**: Invalid keys won't compile
+- ✅ **Runtime validation**: Conflicts detected at registration
+- ✅ **Self-documenting**: `handled_keys` serves as documentation
+- ✅ **Auto-generated help**: Future help system can introspect keys
+
