@@ -116,37 +116,49 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
         if show_value then Printf.sprintf "%s %.1f" sparkline current
         else sparkline
     | Braille ->
-        let values = Queue.to_seq t.data |> List.of_seq in
+        let values = Queue.to_seq t.data |> Array.of_seq in
         let min_val, max_val, current = stats t in
         (* Create braille canvas: 1 cell height (4 dots), t.width cells wide *)
         let canvas = Braille_canvas.create ~width:t.width ~height:1 in
         let width_cells, height_cells = Braille_canvas.get_dimensions canvas in
-        let styles = Array.make_matrix height_cells width_cells None in
+        let needs_color = thresholds <> [] || color <> None in
+        let styles =
+          if needs_color then Some (Array.make_matrix height_cells width_cells None)
+          else None
+        in
         let dot_width, dot_height = Braille_canvas.get_dot_dimensions canvas in
         let range = max_val -. min_val in
         let inv_range = if range = 0. then 0. else 1. /. range in
 
         (* Sample or interpolate points to match dot_width *)
-        let point_count = List.length values in
+        let point_count = Array.length values in
         let samples =
-          if point_count > dot_width then
-            (* Sample data to fit width *)
+          if point_count > dot_width then (
+            (* Downsample by averaging chunks *)
             let step = float_of_int point_count /. float_of_int dot_width in
-            List.init dot_width (fun i ->
-                let idx = int_of_float (float_of_int i *. step) in
-                List.nth values idx)
-          else if point_count = dot_width then values
-          else
+            Array.init dot_width (fun i ->
+                let start_f = float_of_int i *. step in
+                let stop_f = float_of_int (i + 1) *. step in
+                let start_i = int_of_float start_f in
+                let stop_i = min point_count (int_of_float stop_f) in
+                let sum = ref 0. in
+                let count = ref 0 in
+                for idx = start_i to stop_i - 1 do
+                  sum := !sum +. values.(idx) ;
+                  incr count
+                done ;
+                if !count = 0 then min_val else !sum /. float_of_int !count))
+          else if point_count = dot_width then Array.copy values
+          else (
             (* Interpolate/pad to fill width *)
             let pad_left = (dot_width - point_count) / 2 in
-            let pad_right = dot_width - point_count - pad_left in
-            List.init pad_left (fun _ -> min_val)
-            @ values
-            @ List.init pad_right (fun _ -> min_val)
+            let arr = Array.make dot_width min_val in
+            Array.blit values 0 arr pad_left point_count ;
+            arr)
         in
 
         (* Plot each value as a vertical line at its height *)
-        List.iteri
+        Array.iteri
           (fun x value ->
             let y =
               if range = 0. then dot_height / 2
@@ -157,18 +169,21 @@ let render t ~focus ~show_value ?color ?(thresholds = []) ?(mode = ASCII) () =
             in
             let y = dot_height - 1 - y in
             (* Set dot at position *)
-            let color =
-              get_color ~thresholds ~default_color:color value
-            in
-            let cell_x = x / 2 in
-            let cell_y = y / 4 in
-            if cell_y < height_cells && cell_x < width_cells then
-              styles.(cell_y).(cell_x) <- color ;
+            (match styles with
+            | Some s ->
+                let color = get_color ~thresholds ~default_color:color value in
+                let cell_x = x / 2 in
+                let cell_y = y / 4 in
+                if cell_y < height_cells && cell_x < width_cells then
+                  s.(cell_y).(cell_x) <- color
+            | None -> ()) ;
             Braille_canvas.set_dot canvas ~x ~y)
           samples ;
 
         let sparkline =
-          Chart_utils.render_braille_with_colors canvas styles
+          match styles with
+          | Some s -> Chart_utils.render_braille_with_colors canvas s
+          | None -> Braille_canvas.render canvas
         in
         let sparkline = if focus then W.bold sparkline else sparkline in
 
