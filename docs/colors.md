@@ -205,7 +205,7 @@ let default_color = "32"  (* Green *)
 See the following files for practical examples:
 - `example/demo_lib.ml` - Charts with various color configurations
 - `example/system_metrics.ml` - Real-time metrics with color thresholds
-- `example/diagnostics_dashboard.ml` - Advanced multi-chart dashboard (if available)
+- `example/diagnostics_dashboard.ml` - Advanced multi-chart dashboard
 
 ## Further Reading
 
