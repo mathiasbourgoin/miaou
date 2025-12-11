@@ -198,6 +198,7 @@ MIAOU_SDL_TRANSITION=explode MIAOU_DRIVER=sdl \
 The demo includes several example pages showcasing different widgets:
 
 - **System Monitor**: Real-time system metrics (CPU, memory, network) with live sparkline and line chart visualization
+- **Diagnostics Dashboard**: Production-ready monitoring dashboard with ring buffers, histogram-based percentiles (p50/p90/p99), and multi-chart visualization
 - **Chart Demo**: Interactive demonstrations of sparkline, line chart, and bar chart widgets
 - **Image Viewer**: Display PNG images with terminal (Unicode block) or SDL (pixel-perfect) rendering
 - **QR Code Generator**: Generate QR codes with URL encoding
@@ -207,6 +208,31 @@ The demo includes several example pages showcasing different widgets:
 - **Modal Forms**: Input dialogs and confirmation prompts
 
 The demo registers mock System/Logger/Service_lifecycle implementations so you can inspect how capabilities are wired before integrating Miaou into your own driver.
+
+The diagnostics dashboard demonstrates advanced patterns for building real-time monitoring dashboards with ring buffers, histogram-based percentiles, multi-chart visualization, and proper ANSI color usage. Access it from the main demo launcher menu.
+
+### Color Usage Guide
+
+Chart widgets support ANSI SGR color codes for flexible styling. See [`docs/colors.md`](./docs/colors.md) for a comprehensive guide covering:
+
+- ANSI color code format (use `"32"` for green, not palette index `10`)
+- Color precedence rules (point > series > threshold)
+- Best practices for accessibility and consistency
+- Common pitfalls and solutions
+
+Quick example:
+```ocaml
+(* Green series with yellow/red thresholds *)
+let series = {
+  label = "Temperature";
+  points = [{x = 1.0; y = 75.0; color = None}];
+  color = Some "32"  (* Green - ANSI SGR code *)
+} in
+let thresholds = [
+  {value = 60.0; color = "33"};  (* Yellow warning *)
+  {value = 80.0; color = "31"};  (* Red critical *)
+]
+```
 
 Recording & replay
 --------------------
