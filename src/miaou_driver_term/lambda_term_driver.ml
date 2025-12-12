@@ -273,40 +273,47 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       | _ -> false
     in
 
-    (* Eio-aware input refill: uses Unix.select but yields to scheduler periodically.
-       This allows background fibers (like File_pager tail watcher) to run. *)
+    (* Eio-aware input refill: uses Eio_unix.await_readable to wait for input
+       while yielding to the scheduler for other fibers. *)
     let refill timeout =
-      let _ = Fibers.require_runtime () in
-      (* Yield to let other fibers run before blocking *)
-      Eio.Fiber.yield () ;
+      let env, _ = Fibers.require_runtime () in
       try
-        (* Use short polling intervals to stay responsive *)
-        let poll_interval = min timeout 0.05 in
-        let deadline = Unix.gettimeofday () +. timeout in
-        let rec poll_loop () =
-          let remaining = deadline -. Unix.gettimeofday () in
-          if remaining <= 0.0 then 0
+        (* Check for signal exit first *)
+        if Atomic.get signal_exit_flag then 0
+        else
+          (* Wait for input with timeout, yielding to scheduler *)
+          let ready =
+            match
+              Eio.Time.with_timeout env#clock timeout (fun () ->
+                  Eio_unix.await_readable fd ;
+                  Ok true)
+            with
+            | Ok r -> r
+            | Error `Timeout -> false
+          in
+          if not ready then 0
           else
-            let wait_time = min poll_interval remaining in
-            let r, _, _ = Unix.select [fd] [] [] wait_time in
-            if r = [] then (
-              (* Yield between polls to let fibers run *)
-              Eio.Fiber.yield () ;
-              (* Check for signal exit *)
-              if Atomic.get signal_exit_flag then 0 else poll_loop ())
-            else
-              let b = Bytes.create 256 in
-              try
-                let n = Unix.read fd b 0 256 in
-                if n <= 0 then 0
-                else (
-                  pending := !pending ^ Bytes.sub_string b 0 n ;
-                  n)
-              with Unix.Unix_error (Unix.EINTR, _, _) -> poll_loop ()
-        in
-        poll_loop ()
+            let b = Bytes.create 256 in
+            let n = Unix.read fd b 0 256 in
+            if n <= 0 then 0
+            else (
+              pending := !pending ^ Bytes.sub_string b 0 n ;
+              n)
       with
       | Unix.Unix_error (Unix.EINTR, _, _) -> 0
+      | Unix.Unix_error (Unix.EINVAL, _, _) -> (
+          (* Fallback for fds that don't support await_readable *)
+          let r, _, _ = Unix.select [fd] [] [] timeout in
+          if r = [] then 0
+          else
+            let b = Bytes.create 256 in
+            try
+              let n = Unix.read fd b 0 256 in
+              if n <= 0 then 0
+              else (
+                pending := !pending ^ Bytes.sub_string b 0 n ;
+                n)
+            with _ -> 0)
       | Eio.Cancel.Cancelled _ -> 0
     in
 

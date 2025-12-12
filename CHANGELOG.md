@@ -46,6 +46,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes (2025-12-12)
 
+#### ⚠️ Runtime Migrated from Lwt to Eio
+
+**Impact:** Applications must initialize the Eio runtime before using Miaou.
+
+**What changed:**
+- All async/concurrency now uses Eio instead of Lwt
+- `cohttp-lwt-unix` replaced with `cohttp-eio`
+- Terminal driver uses `Eio_unix.await_readable` for input polling
+- Background tasks use `Eio.Fiber` instead of `Thread.create`
+
+**Migration guide:**
+
+1. Wrap your main function in `Eio_main.run` and initialize the runtime:
+```ocaml
+(* Before *)
+let () =
+  let page = ... in
+  Miaou_runner_tui.Runner_tui.run page
+
+(* After *)
+let () =
+  Eio_main.run @@ fun env ->
+  Eio.Switch.run @@ fun sw ->
+  Miaou_helpers.Fiber_runtime.init ~env ~sw;
+  let page = ... in
+  Miaou_runner_tui.Runner_tui.run page
+```
+
+2. Update opam dependencies:
+```
+- lwt
+- cohttp-lwt-unix
++ eio
++ eio_main
++ cohttp-eio
+```
+
+**New modules:**
+- `Miaou_helpers.Fiber_runtime` — shared Eio runtime management
+- `Miaou_widgets_display.File_pager` — Eio-based file tailing pager
+
 #### ⚠️ Pager Widget: Notification Callback Now Per-Instance
 
 **Impact:** Code using `Pager_widget.set_notify_render` must be updated.
