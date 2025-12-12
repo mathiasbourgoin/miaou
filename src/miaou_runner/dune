@@ -4,7 +4,7 @@
  (modules tui_driver_common html_driver runner_cli)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou.core miaou.interfaces miaou.widgets.display))
+ (libraries miaou.core miaou.interfaces miaou.widgets.display miaou.helpers))
 
 (library
  (name miaou_runner_tui)

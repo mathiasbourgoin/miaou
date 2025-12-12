@@ -3,6 +3,7 @@
  (public_name miaou.widgets.display)
  (modules
   pager_widget
+  file_pager
   table_widget
   table_widget_sdl
   tree_widget
@@ -27,6 +28,9 @@
  (libraries
   yojson
   str
+  eio
+  eio.unix
+  unix
   miaou.helpers
   miaou.interfaces
   tsdl

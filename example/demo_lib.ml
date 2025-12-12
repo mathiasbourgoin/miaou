@@ -17,6 +17,8 @@ let ensure_system_capability () =
   | Some _ -> ()
   | None -> failwith "capability missing: System (demo)"
 
+module Fibers = Miaou_helpers.Fiber_runtime
+
 (* Miaou demo launcher - using Miaou.Core.Tui_driver *)
 
 let launcher_page_name = "miaou.demo.launcher"
@@ -542,25 +544,17 @@ end
 
 module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Pager = Miaou_widgets_display.Pager_widget
+  module File_pager = Miaou_widgets_display.File_pager
 
-  type tail_strategy =
-    | Inotify of {proc_in : in_channel; fd : Unix.file_descr}
-    | Polling
-
-  type tail_state = {
-    path : string;
-    mutable pos : int;
-    mutable strategy : tail_strategy;
-    mutable last_check : float;
-    poll_interval_s : float;
-  }
+  (* Cancellation for temp writer fiber *)
+  let temp_writer_stop = ref (fun () -> ())
 
   type state = {
     pager : Pager.t;
+    file : File_pager.t option;
     streaming : bool;
     ticks : int;
     next_page : string option;
-    tail : tail_state option;
   }
 
   type msg = unit
@@ -577,108 +571,45 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     close_out_noerr oc
 
   let start_temp_writer path =
-    let rec loop n =
-      Unix.sleepf 0.2 ;
-      let line = Printf.sprintf "[demo %04d] %0.3f" n (Unix.gettimeofday ()) in
-      (try
-         let oc =
-           open_out_gen
-             [Open_creat; Open_wronly; Open_append; Open_text]
-             0o644
-             path
-         in
-         output_string oc line ;
-         output_char oc '\n' ;
-         close_out_noerr oc
-       with _ -> ()) ;
-      loop (n + 1)
-    in
-    let _t = Thread.create loop 1 in
-    ()
-
-  let start_inotify path =
-    try
-      let cmd =
-        Printf.sprintf
-          "inotifywait -q -m -e modify -e create --format '%%e %%w%%f' %s"
-          (Filename.quote path)
-      in
-      let proc_in = Unix.open_process_in cmd in
-      let fd = Unix.descr_of_in_channel proc_in in
-      Unix.set_nonblock fd ;
-      Some (proc_in, fd)
-    with _ -> None
-
-  let make_tail path =
-    try
-      let st = Unix.stat path in
-      let strategy =
-        match start_inotify path with
-        | Some (proc_in, fd) -> Inotify {proc_in; fd}
-        | None -> Polling
-      in
-      Some
-        {
-          path;
-          pos = st.Unix.st_size;
-          strategy;
-          last_check = Unix.gettimeofday ();
-          poll_interval_s = 0.25;
-        }
-    with _ -> None
-
-  let check_inotify tail =
-    match tail.strategy with
-    | Inotify {proc_in; fd} -> (
-        try
-          let ready, _, _ = Unix.select [fd] [] [] 0.0 in
-          if ready = [] then false
-          else (
-            (try ignore (input_line proc_in) with _ -> ()) ;
-            true)
-        with _ ->
-          tail.strategy <- Polling ;
-          false)
-    | Polling -> false
-
-  let read_new_lines tail pager =
-    match try Some (Unix.stat tail.path) with _ -> None with
-    | None -> ()
-    | Some st -> (
-        if st.Unix.st_size < tail.pos then tail.pos <- st.Unix.st_size ;
-        try
-          let ic = open_in_bin tail.path in
-          seek_in ic tail.pos ;
-          let rec loop acc =
-            match input_line ic with
-            | line -> loop (line :: acc)
-            | exception End_of_file -> (List.rev acc, pos_in ic)
-          in
-          let lines, new_pos = loop [] in
-          close_in_noerr ic ;
-          tail.pos <- new_pos ;
-          if lines <> [] then Pager.append_lines_batched pager lines
-        with _ -> ())
-
-  let start_tail_watcher pager tail =
-    let rec loop () =
-      let now = Unix.gettimeofday () in
-      let event_ready = check_inotify tail in
-      let should_poll =
-        event_ready
-        ||
-        match tail.strategy with
-        | Polling -> now -. tail.last_check >= tail.poll_interval_s
-        | Inotify _ -> false
-      in
-      if should_poll then (
-        tail.last_check <- now ;
-        read_new_lines tail pager ;
-        Pager.flush_pending_if_needed ~force:true pager) ;
-      Unix.sleepf tail.poll_interval_s ;
-      loop ()
-    in
-    ignore (Thread.create loop ())
+    let stopped = ref false in
+    let _, sw = Fibers.require_runtime () in
+    let cancel_promise, cancel_resolver = Eio.Promise.create () in
+    (temp_writer_stop :=
+       fun () ->
+         if not !stopped then (
+           stopped := true ;
+           Eio.Promise.resolve cancel_resolver ())) ;
+    Eio.Fiber.fork ~sw (fun () ->
+        Fibers.with_env (fun env ->
+            Eio.Fiber.first
+              (fun () ->
+                let rec loop n =
+                  if !stopped then ()
+                  else (
+                    Eio.Time.sleep env#clock 0.2 ;
+                    if !stopped then ()
+                    else
+                      let line =
+                        Printf.sprintf
+                          "[demo %04d] %0.3f"
+                          n
+                          (Eio.Time.now env#clock)
+                      in
+                      (try
+                         let oc =
+                           open_out_gen
+                             [Open_creat; Open_wronly; Open_append; Open_text]
+                             0o644
+                             path
+                         in
+                         output_string oc line ;
+                         output_char oc '\n' ;
+                         close_out_noerr oc
+                       with _ -> ()) ;
+                      loop (n + 1))
+                in
+                loop 1)
+              (fun () -> Eio.Promise.await cancel_promise)))
 
   let init () =
     (* Try to load a real system log file for demonstration *)
@@ -752,17 +683,28 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     in
     write_lines temp_path initial_lines ;
     start_temp_writer temp_path ;
-    let pager = Pager.open_lines ~title:temp_path initial_lines in
-    let tail = make_tail temp_path in
-    (match tail with
-    | Some tail_state ->
-        Pager.start_streaming pager ;
-        pager.Pager.follow <- true ;
-        start_tail_watcher pager tail_state
-    | None -> ()) ;
-    {pager; streaming = Option.is_some tail; ticks = 0; next_page = None; tail}
+    let file =
+      match File_pager.open_file ~follow:true temp_path with
+      | Ok fp -> Some fp
+      | Error _ -> None
+    in
+    let pager =
+      match file with
+      | Some fp -> File_pager.pager fp
+      | None -> Pager.open_lines ~title:temp_path initial_lines
+    in
+    {pager; file; streaming = Option.is_some file; ticks = 0; next_page = None}
 
   let update s _ = s
+
+  let close_file_if_any s =
+    (* Stop the temp writer fiber *)
+    !temp_writer_stop () ;
+    match s.file with
+    | Some fp ->
+        File_pager.close fp ;
+        {s with file = None}
+    | None -> s
 
   let render_pager s ~focus ~size = Pager.render_with_size ~size s.pager ~focus
 
@@ -782,7 +724,7 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     s
 
   let toggle_streaming s =
-    match s.tail with
+    match s.file with
     | Some _ -> s (* Streaming driven by tailing; ignore manual toggle *)
     | None ->
         if s.streaming then (
@@ -809,6 +751,7 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
           {s with pager}
         else
           (* Otherwise, Esc exits the demo *)
+          s |> close_file_if_any |> fun s ->
           {s with next_page = Some launcher_page_name}
     | Some (Miaou.Core.Keys.Char "a") when not pager_input_mode ->
         let line =
@@ -838,17 +781,16 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let move s _ = s
 
   let refresh s =
-    (* Background tail_watcher thread handles file reading, so refresh just updates state *)
+    (* Background file_pager fiber handles file reading; refresh just flushes. *)
     let s =
-      match s.tail with
+      match s.file with
       | None -> s
-      | Some _tail ->
-          (* Flush any pending lines that the background thread added *)
+      | Some _ ->
           Pager.flush_pending_if_needed s.pager ;
           {s with streaming = true}
     in
     let ticks = s.ticks + 1 in
-    if s.streaming && s.tail = None && ticks mod 5 = 0 then (
+    if s.streaming && s.file = None && ticks mod 5 = 0 then (
       Pager.append_lines_batched
         s.pager
         [Printf.sprintf "stream chunk #%d" (ticks / 5)] ;
@@ -867,7 +809,12 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let pager, _ = Pager.handle_key ~win s.pager ~key in
     {s with pager}
 
-  let next_page s = s.next_page
+  let next_page s =
+    match s.next_page with
+    | Some _ ->
+        let s = close_file_if_any s in
+        s.next_page
+    | None -> None
 
   (* legacy key_bindings removed *)
 
@@ -875,7 +822,9 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let handled_keys () = []
 
-  let back s = {s with next_page = Some launcher_page_name}
+  let back s =
+    let s = close_file_if_any s in
+    {s with next_page = Some launcher_page_name}
 
   let has_modal s =
     match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false

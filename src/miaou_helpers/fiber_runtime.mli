@@ -23,3 +23,9 @@ val with_env : (Eio_unix.Stdenv.base -> 'a) -> 'a
 val spawn : (Eio_unix.Stdenv.base -> unit) -> unit
 
 val sleep : float -> unit
+
+(** Check if shutdown has been requested. Fibers should check this periodically. *)
+val is_shutdown : unit -> bool
+
+(** Signal all fibers to stop. Call this before exiting the application. *)
+val shutdown : unit -> unit

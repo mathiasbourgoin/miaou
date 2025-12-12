@@ -14,7 +14,11 @@ end
 
 let runtime : (module RUNTIME) option ref = ref None
 
+(* Global shutdown flag checked by all spawned fibers *)
+let shutdown_flag = Atomic.make false
+
 let init ~env ~sw =
+  Atomic.set shutdown_flag false ;
   runtime :=
     Some
       (module struct
@@ -45,8 +49,14 @@ let with_env f =
         "Fiber runtime not initialized; call Fiber_runtime.init from \
          Eio_main.run"
 
+let is_shutdown () = Atomic.get shutdown_flag
+
+let shutdown () = Atomic.set shutdown_flag true
+
 let spawn f =
   let env, sw = require_runtime () in
-  Fiber.fork ~sw (fun () -> f env) |> ignore
+  Fiber.fork ~sw (fun () -> if not (is_shutdown ()) then f env) |> ignore
 
-let sleep seconds = with_env (fun env -> Eio.Time.sleep env#clock seconds)
+let sleep seconds =
+  if is_shutdown () then ()
+  else with_env (fun env -> Eio.Time.sleep env#clock seconds)

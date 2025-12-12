@@ -76,7 +76,8 @@ type t = {
            (useful for background threads to request UI refresh)
     @param lines Initial list of lines to display
 *)
-val open_lines : ?title:string -> ?notify_render:(unit -> unit) -> string list -> t
+val open_lines :
+  ?title:string -> ?notify_render:(unit -> unit) -> string list -> t
 
 (** Create a pager from text (splits on newlines).
 

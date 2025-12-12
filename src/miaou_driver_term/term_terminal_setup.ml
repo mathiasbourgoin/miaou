@@ -79,10 +79,9 @@ let setup_and_cleanup () =
        with _ -> ()) ;
       (* Method 3: Write to stderr as last resort *)
       (try Printf.eprintf "%s%!" disable_seq with _ -> ()) ;
-      (* Give terminal time to process all escape sequences - use Eio sleep if available *)
-      match Miaou_helpers.Fiber_runtime.env_opt () with
-      | Some env -> Eio.Time.sleep env#clock 0.2
-      | None -> Unix.sleepf 0.2
+      (* Give terminal time to process all escape sequences - always use Unix sleep
+         during cleanup to avoid Eio scheduler issues *)
+      Unix.sleepf 0.05
     with _ -> ()
   in
   let cleanup () =
@@ -102,17 +101,12 @@ let setup_and_cleanup () =
           sigv
           (Sys.Signal_handle
              (fun _sig ->
-               (* Run cleanup synchronously in signal handler.
-
-                  The cleanup() function is now idempotent (safe to call multiple times)
-                  because we removed the mouse_cleanup_done flag. This means cleanup can
-                  run here in the signal handler AND also via at_exit without issues.
-
-                  We need to run it here because the main loop might be stuck in blocking
-                  read and won't check the exit flag quickly enough. *)
+               (* Run cleanup synchronously in signal handler. *)
                (try cleanup () with _ -> ()) ;
                (* Set flag so main loop can exit gracefully if it's still running *)
-               Atomic.set signal_exit_flag true))
+               Atomic.set signal_exit_flag true ;
+               (* Exit immediately - don't wait for Eio fibers to finish *)
+               exit 130))
       with _ -> ()
     in
     set Sys.sigint ;

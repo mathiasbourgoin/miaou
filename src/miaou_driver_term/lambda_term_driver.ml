@@ -273,28 +273,23 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       | _ -> false
     in
 
-    (* Eio-aware input refill: uses Unix.select but yields to scheduler periodically.
-       This allows background fibers (like File_pager tail watcher) to run. *)
+    (* Eio-aware input refill: uses short polling with Eio.Time.sleep to yield
+       to scheduler and check for signals frequently. *)
     let refill timeout =
-      let _ = Fibers.require_runtime () in
-      (* Yield to let other fibers run before blocking *)
-      Eio.Fiber.yield () ;
-      try
-        (* Use short polling intervals to stay responsive *)
-        let poll_interval = min timeout 0.05 in
-        let deadline = Unix.gettimeofday () +. timeout in
-        let rec poll_loop () =
+      let env, _ = Fibers.require_runtime () in
+      let poll_interval = 0.05 in
+      let deadline = Unix.gettimeofday () +. timeout in
+      let rec poll_loop () =
+        (* Check for signal exit first *)
+        if Atomic.get signal_exit_flag then 0
+        else
           let remaining = deadline -. Unix.gettimeofday () in
           if remaining <= 0.0 then 0
           else
-            let wait_time = min poll_interval remaining in
-            let r, _, _ = Unix.select [fd] [] [] wait_time in
-            if r = [] then (
-              (* Yield between polls to let fibers run *)
-              Eio.Fiber.yield () ;
-              (* Check for signal exit *)
-              if Atomic.get signal_exit_flag then 0 else poll_loop ())
-            else
+            (* Non-blocking check for input *)
+            let r, _, _ = Unix.select [fd] [] [] 0.0 in
+            if r <> [] then
+              (* Data available, read it *)
               let b = Bytes.create 256 in
               try
                 let n = Unix.read fd b 0 256 in
@@ -303,9 +298,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                   pending := !pending ^ Bytes.sub_string b 0 n ;
                   n)
               with Unix.Unix_error (Unix.EINTR, _, _) -> poll_loop ()
-        in
-        poll_loop ()
-      with
+            else (
+              (* No data, sleep briefly and retry *)
+              Eio.Time.sleep env#clock (min poll_interval remaining) ;
+              poll_loop ())
+      in
+      try poll_loop () with
       | Unix.Unix_error (Unix.EINTR, _, _) -> 0
       | Eio.Cancel.Cancelled _ -> 0
     in

@@ -68,7 +68,10 @@ let run ~term_backend ~sdl_backend (initial_page : (module PAGE_SIG)) : outcome
     | `SwitchTo next -> (
         match Registry.find next with Some p -> loop p | None -> `Quit)
   in
-  loop initial_page
+  let _result = loop initial_page in
+  (* Shutdown fibers and exit to avoid Eio.Switch.run waiting for them *)
+  Miaou_helpers.Fiber_runtime.shutdown () ;
+  exit 0
 
 let () =
   ignore size ;

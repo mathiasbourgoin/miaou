@@ -32,9 +32,8 @@ let disable_mouse_tracking () =
     print_string
       "\027[?1000l\027[?1002l\027[?1003l\027[?1005l\027[?1006l\027[?1015l" ;
     Stdlib.flush stdout ;
-    match Miaou_helpers.Fiber_runtime.env_opt () with
-    | Some env -> Eio.Time.sleep env#clock 0.01
-    | None -> Unix.sleepf 0.01
+    (* Always use Unix sleep during cleanup to avoid Eio scheduler issues *)
+    Unix.sleepf 0.01
   with _ -> ()
 
 let cleanup fd orig =
