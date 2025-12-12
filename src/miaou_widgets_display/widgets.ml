@@ -235,12 +235,21 @@ let highlight_matches ~(is_regex : bool) ~(query : string option)
   | None -> line
   | Some q -> (
       let q = String.trim q in
+      if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+        Printf.eprintf
+          "[HIGHLIGHT] Called with query='%s' (len=%d), is_regex=%b, line_len=%d\n\
+           %!"
+          q
+          (String.length q)
+          is_regex
+          (String.length line) ;
       if q = "" then line
       else
         let hl s = ansi "1;33;4" s in
         let apply_with (rex : Str.regexp) : string =
           let len = String.length line in
           let buf = Buffer.create (len + 32) in
+          let match_count = ref 0 in
           let rec loop pos =
             if pos >= len then ()
             else
@@ -250,6 +259,7 @@ let highlight_matches ~(is_regex : bool) ~(query : string option)
                 let mlen = String.length m in
                 Buffer.add_substring buf line pos (idx - pos) ;
                 if mlen > 0 then (
+                  incr match_count ;
                   Buffer.add_string buf (hl m) ;
                   loop (idx + mlen))
                 else (
@@ -258,10 +268,20 @@ let highlight_matches ~(is_regex : bool) ~(query : string option)
               with Not_found -> Buffer.add_substring buf line pos (len - pos)
           in
           loop 0 ;
-          Buffer.contents buf
+          let result = Buffer.contents buf in
+          if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" && !match_count > 0 then
+            Printf.eprintf
+              "[HIGHLIGHT] Found %d match(es) in line, added ANSI codes\n%!"
+              !match_count ;
+          result
         in
         try
-          let rex = if is_regex then Str.regexp q else Str.regexp_string q in
+          let rex =
+            if is_regex then Str.regexp_case_fold q (* Case-insensitive regex *)
+            else
+              Str.regexp_string_case_fold
+                q (* Case-insensitive literal string *)
+          in
           apply_with rex
         with _ -> line)
 
@@ -537,7 +557,7 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     let buf = Buffer.create (n * String.length s) in
     for _ = 1 to max 0 n do
       Buffer.add_string buf s
-    done;
+    done ;
     Buffer.contents buf
   in
   let hline = repeat (max 0 inner_area_w) glyph_hline in
@@ -595,10 +615,11 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
   in
   let boxed_colored =
     let buf = Buffer.create (total_h * (total_w + 1)) in
-    List.iteri (fun i line ->
-      if i > 0 then Buffer.add_char buf '\n';
-      Buffer.add_string buf line)
-      boxed_colored_lines;
+    List.iteri
+      (fun i line ->
+        if i > 0 then Buffer.add_char buf '\n' ;
+        Buffer.add_string buf line)
+      boxed_colored_lines ;
     Buffer.contents buf
   in
   let base_to_use =

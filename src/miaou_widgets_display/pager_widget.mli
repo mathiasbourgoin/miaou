@@ -58,11 +58,13 @@ type t = {
   mutable cached_body : string option;
   mutable last_flush : float;
   mutable flush_interval_ms : int;
+  mutable last_win : int;
   mutable search : string option;
   mutable is_regex : bool;
   mutable input_mode : [`None | `Search_edit | `Lookup];
   mutable input_buffer : string;
   mutable input_pos : int;
+  mutable notify_render : (unit -> unit) option;
 }
 
 (** {1 Creation} *)
@@ -70,16 +72,19 @@ type t = {
 (** Create a pager from a list of lines.
 
     @param title Optional title displayed at the top
+    @param notify_render Optional callback invoked when content changes
+           (useful for background threads to request UI refresh)
     @param lines Initial list of lines to display
 *)
-val open_lines : ?title:string -> string list -> t
+val open_lines : ?title:string -> ?notify_render:(unit -> unit) -> string list -> t
 
 (** Create a pager from text (splits on newlines).
 
     @param title Optional title displayed at the top
+    @param notify_render Optional callback invoked when content changes
     @param text Text content (will be split on '\\n')
 *)
-val open_text : ?title:string -> string -> t
+val open_text : ?title:string -> ?notify_render:(unit -> unit) -> string -> t
 
 (** {1 Content Updates} *)
 
@@ -127,13 +132,32 @@ val append_text_batched : t -> string -> unit
 (** Enable streaming mode with spinner animation.
 
     In streaming mode:
-    - Spinner shows activity
-    - Batched appends are buffered
-    - Automatic flush at limited rate
-    - Follow mode available
+    - Spinner shows activity in the title area
+    - Batched appends are buffered and flushed at intervals
+    - Automatic flush at limited rate (default: 200ms)
+    - Follow mode can be enabled to auto-scroll to latest content
 
-    Typical usage: enable before starting a background task that will
-    call {!append_text_batched} repeatedly.
+    {b Follow Mode and Streaming:}
+    Follow mode (toggled with 'f' key) works independently of streaming mode,
+    but they complement each other well:
+    - When follow mode is ON: viewport automatically shows the last N lines,
+      scrolling down as new content arrives
+    - When follow mode is OFF: viewport stays at current scroll position
+    - Streaming mode handles efficient batched updates regardless of follow mode
+
+    Typical usage: enable streaming before starting a background task that will
+    call {!append_text_batched} repeatedly, and enable follow mode (press 'f')
+    if you want to auto-tail the output.
+
+    {[
+      let pager = Pager_widget.open_text ~title:"Build Log" "" in
+      Pager_widget.start_streaming pager ;
+      (* User can press 'f' to enable follow mode for auto-tailing *)
+      (* Background task appends lines *)
+      Pager_widget.append_text_batched pager "Building...\n" ;
+      (* ... *)
+      Pager_widget.stop_streaming pager
+    ]}
 *)
 val start_streaming : t -> unit
 
@@ -201,16 +225,49 @@ val render_with_size : size:'a -> t -> focus:bool -> string
 
     Processes navigation keys, search commands, and other pager controls.
 
-    Supported keys:
-    - [Up]/[Down]: Scroll by line
-    - [PageUp]/[PageDown]: Scroll by page
-    - [Home]/[End]: Jump to start/end
-    - [/]: Enter search mode
-    - [n]/[N]: Next/previous search match
-    - [f]: Toggle follow mode
+    {b Navigation Keys:}
+    - [Up]/[Down]: Scroll by line (disables follow mode)
+    - [Page_up]/[Page_down]: Scroll by page (disables follow mode)
+    - [g]: Jump to start (disables follow mode)
+    - [G]: Jump to end (disables follow mode)
 
-    @param win Visible window height in lines (optional)
-    @param key Key string (e.g., "Up", "Down", "/", "n")
+    {b Search:}
+    - [/]: Enter search mode - displays search prompt
+    - When in search mode:
+      - Type characters to build search query
+      - [Backspace]: Delete character before cursor
+      - [Left]/[Right]: Move cursor within search query
+      - [Enter]: Execute search and exit search mode
+      - [Esc]: Cancel search and exit search mode
+    - [n]: Jump to next search match
+    - [p]: Jump to previous search match
+
+    {b Follow Mode:}
+    - [f] or [F]: Toggle follow mode
+    - When follow mode is enabled, the pager automatically scrolls to show
+      the latest content (bottom of the log). Any manual scrolling (Up/Down/
+      PageUp/PageDown/g/G) will disable follow mode.
+    - Follow mode is useful for tailing streaming logs.
+
+    {b Integration Example:}
+    {[
+      (* In your page/component that embeds the pager: *)
+      let handle_key state ~key ~size =
+        (* First, try to let the pager handle the key *)
+        let pager', consumed = Pager_widget.handle_key state.pager ~key in
+        if consumed then
+          (* Pager handled it - update state with new pager *)
+          { state with pager = pager' }
+        else
+          (* Pager didn't handle it - process it yourself *)
+          match key with
+          | "q" -> exit_page state
+          | "Tab" -> switch_focus state
+          | _ -> state
+    ]}
+
+    @param win Visible window height in lines (optional, default: 20)
+    @param key Key string (e.g., "Up", "Down", "/", "n", "a", "Backspace")
     @return Tuple of (updated pager, consumed flag). If consumed is true,
             the key was handled by the pager. If false, the key should be
             processed by the parent.
@@ -233,15 +290,3 @@ val json_streamer_create : unit -> json_streamer
     @return List of completed, syntax-highlighted lines
 *)
 val json_streamer_feed : json_streamer -> string -> string list
-
-(** {1 Background Notification} *)
-
-(** Set callback for requesting renders from background threads.
-
-    The pager can notify the UI driver when new content is available,
-    allowing responsive updates without polling.
-
-    @param callback Optional callback to invoke when render is needed
-                     (typically set by the driver)
-*)
-val set_notify_render : (unit -> unit) option -> unit

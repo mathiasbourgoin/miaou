@@ -112,6 +112,7 @@ module Select_modal : SELECT_MODAL_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let extract_selection s = Miaou_widgets_input.Select_widget.get_selection s
@@ -157,6 +158,7 @@ module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = s
@@ -214,6 +216,7 @@ module Poly_select_modal : SELECT_MODAL_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   (* Extract the current label (string). Return [Some label]. *)
@@ -319,6 +322,7 @@ module Table_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -384,6 +388,7 @@ module Poly_table_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back t = t
@@ -457,6 +462,7 @@ module Palette_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back _ = go_home
@@ -526,6 +532,7 @@ module Logger_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -536,22 +543,224 @@ end
 module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   module Pager = Miaou_widgets_display.Pager_widget
 
+  type tail_strategy =
+    | Inotify of {proc_in : in_channel; fd : Unix.file_descr}
+    | Polling
+
+  type tail_state = {
+    path : string;
+    mutable pos : int;
+    mutable strategy : tail_strategy;
+    mutable last_check : float;
+    poll_interval_s : float;
+  }
+
   type state = {
     pager : Pager.t;
     streaming : bool;
     ticks : int;
     next_page : string option;
+    tail : tail_state option;
   }
 
   type msg = unit
 
-  let init () =
-    let pager =
-      Pager.open_lines
-        ~title:"/var/log/miaou-demo.log"
-        ["Booting demo environment"; "All systems nominal"]
+  let write_lines path lines =
+    let oc =
+      open_out_gen [Open_creat; Open_trunc; Open_wronly; Open_text] 0o644 path
     in
-    {pager; streaming = false; ticks = 0; next_page = None}
+    List.iter
+      (fun l ->
+        output_string oc l ;
+        output_char oc '\n')
+      lines ;
+    close_out_noerr oc
+
+  let start_temp_writer path =
+    let rec loop n =
+      Unix.sleepf 0.2 ;
+      let line = Printf.sprintf "[demo %04d] %0.3f" n (Unix.gettimeofday ()) in
+      (try
+         let oc =
+           open_out_gen
+             [Open_creat; Open_wronly; Open_append; Open_text]
+             0o644
+             path
+         in
+         output_string oc line ;
+         output_char oc '\n' ;
+         close_out_noerr oc
+       with _ -> ()) ;
+      loop (n + 1)
+    in
+    let _t = Thread.create loop 1 in
+    ()
+
+  let start_inotify path =
+    try
+      let cmd =
+        Printf.sprintf
+          "inotifywait -q -m -e modify -e create --format '%%e %%w%%f' %s"
+          (Filename.quote path)
+      in
+      let proc_in = Unix.open_process_in cmd in
+      let fd = Unix.descr_of_in_channel proc_in in
+      Unix.set_nonblock fd ;
+      Some (proc_in, fd)
+    with _ -> None
+
+  let make_tail path =
+    try
+      let st = Unix.stat path in
+      let strategy =
+        match start_inotify path with
+        | Some (proc_in, fd) -> Inotify {proc_in; fd}
+        | None -> Polling
+      in
+      Some
+        {
+          path;
+          pos = st.Unix.st_size;
+          strategy;
+          last_check = Unix.gettimeofday ();
+          poll_interval_s = 0.25;
+        }
+    with _ -> None
+
+  let check_inotify tail =
+    match tail.strategy with
+    | Inotify {proc_in; fd} -> (
+        try
+          let ready, _, _ = Unix.select [fd] [] [] 0.0 in
+          if ready = [] then false
+          else (
+            (try ignore (input_line proc_in) with _ -> ()) ;
+            true)
+        with _ ->
+          tail.strategy <- Polling ;
+          false)
+    | Polling -> false
+
+  let read_new_lines tail pager =
+    match try Some (Unix.stat tail.path) with _ -> None with
+    | None -> ()
+    | Some st -> (
+        if st.Unix.st_size < tail.pos then tail.pos <- st.Unix.st_size ;
+        try
+          let ic = open_in_bin tail.path in
+          seek_in ic tail.pos ;
+          let rec loop acc =
+            match input_line ic with
+            | line -> loop (line :: acc)
+            | exception End_of_file -> (List.rev acc, pos_in ic)
+          in
+          let lines, new_pos = loop [] in
+          close_in_noerr ic ;
+          tail.pos <- new_pos ;
+          if lines <> [] then Pager.append_lines_batched pager lines
+        with _ -> ())
+
+  let start_tail_watcher pager tail =
+    let rec loop () =
+      let now = Unix.gettimeofday () in
+      let event_ready = check_inotify tail in
+      let should_poll =
+        event_ready
+        ||
+        match tail.strategy with
+        | Polling -> now -. tail.last_check >= tail.poll_interval_s
+        | Inotify _ -> false
+      in
+      if should_poll then (
+        tail.last_check <- now ;
+        read_new_lines tail pager ;
+        Pager.flush_pending_if_needed ~force:true pager) ;
+      Unix.sleepf tail.poll_interval_s ;
+      loop ()
+    in
+    ignore (Thread.create loop ())
+
+  let init () =
+    (* Try to load a real system log file for demonstration *)
+    let log_files =
+      [
+        "/var/log/pacman.log";
+        (* Arch Linux package manager *)
+        "/var/log/alternatives.log";
+        (* Debian/Ubuntu *)
+        "/var/log/dpkg.log";
+        (* Debian/Ubuntu *)
+        "/var/log/bootstrap.log";
+        (* Debian/Ubuntu *)
+        "/var/log/haskell-register.log";
+        (* Haskell toolchain *)
+      ]
+    in
+    let rec try_load_log = function
+      | [] -> None
+      | path :: rest -> (
+          try
+            let ic = open_in path in
+            let lines = ref [] in
+            (try
+               while true do
+                 lines := input_line ic :: !lines
+               done
+             with End_of_file -> close_in ic) ;
+            let loaded_lines = List.rev !lines in
+            if List.length loaded_lines > 0 then Some (path, loaded_lines)
+            else try_load_log rest
+          with _ -> try_load_log rest)
+    in
+    (* Try journalctl as fallback if no log file works *)
+    let try_journalctl () =
+      try
+        let ic =
+          Unix.open_process_in "journalctl --user -n 100 --no-pager 2>/dev/null"
+        in
+        let lines = ref [] in
+        (try
+           while true do
+             lines := input_line ic :: !lines
+           done
+         with End_of_file -> ignore (Unix.close_process_in ic)) ;
+        if List.length !lines > 10 then
+          Some ("journalctl --user (last 100 entries)", List.rev !lines)
+        else None
+      with _ -> None
+    in
+    let _source, _title, _lines =
+      match try_load_log log_files with
+      | Some (path, log_lines) -> (`File path, path, log_lines)
+      | None -> (
+          match try_journalctl () with
+          | Some (jctl_title, jctl_lines) -> (`External, jctl_title, jctl_lines)
+          | None ->
+              (* Final fallback to demo content *)
+              ( `Demo,
+                "/var/log/miaou-demo.log (demo)",
+                ["Booting demo environment"; "All systems nominal"] ))
+    in
+    let temp_path = Filename.temp_file "miaou-pager-demo" ".log" in
+    let initial_lines =
+      [
+        "Demo pager tail (temp file)";
+        "New entries added every 200ms:";
+        "";
+        Printf.sprintf "Tailing %s (demo writer appends every 200ms)" temp_path;
+      ]
+    in
+    write_lines temp_path initial_lines ;
+    start_temp_writer temp_path ;
+    let pager = Pager.open_lines ~title:temp_path initial_lines in
+    let tail = make_tail temp_path in
+    (match tail with
+    | Some tail_state ->
+        Pager.start_streaming pager ;
+        pager.Pager.follow <- true ;
+        start_tail_watcher pager tail_state
+    | None -> ()) ;
+    {pager; streaming = Option.is_some tail; ticks = 0; next_page = None; tail}
 
   let update s _ = s
 
@@ -560,8 +769,9 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let view s ~focus ~size =
     let header_lines =
       [
-        "Pager widget demo";
-        "a: append line • s: toggle streaming • f: follow mode • Esc: back";
+        "Pager widget demo - Real system log viewer";
+        "/ search • n/p next/prev • f follow mode • a append • s streaming • \
+         Esc back";
         "";
       ]
     in
@@ -572,41 +782,73 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     s
 
   let toggle_streaming s =
-    if s.streaming then (
-      Pager.stop_streaming s.pager ;
-      {s with streaming = false})
-    else (
-      Pager.start_streaming s.pager ;
-      {s with streaming = true})
+    match s.tail with
+    | Some _ -> s (* Streaming driven by tailing; ignore manual toggle *)
+    | None ->
+        if s.streaming then (
+          Pager.stop_streaming s.pager ;
+          {s with streaming = false})
+        else (
+          Pager.start_streaming s.pager ;
+          {s with streaming = true})
 
   let win_from size = max 3 (size.LTerm_geom.rows - 4)
 
   let handle_key s key_str ~size =
     let win = win_from size in
+    (* Check if pager is in search mode first - if so, let it handle all keys except global Esc *)
+    let pager_input_mode =
+      match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false
+    in
     match Miaou.Core.Keys.of_string key_str with
     | Some (Miaou.Core.Keys.Char "Esc") | Some (Miaou.Core.Keys.Char "Escape")
       ->
-        {s with next_page = Some launcher_page_name}
-    | Some (Miaou.Core.Keys.Char "a") ->
+        (* If pager is in search mode, let it handle Esc to close search bar *)
+        if pager_input_mode then
+          let pager, _ = Pager.handle_key ~win s.pager ~key:key_str in
+          {s with pager}
+        else
+          (* Otherwise, Esc exits the demo *)
+          {s with next_page = Some launcher_page_name}
+    | Some (Miaou.Core.Keys.Char "a") when not pager_input_mode ->
         let line =
           Printf.sprintf "[%0.3f] new log entry" (Unix.gettimeofday ())
         in
         append_line s line
-    | Some (Miaou.Core.Keys.Char "s") -> toggle_streaming s
-    | Some (Miaou.Core.Keys.Char "f") ->
+    | Some (Miaou.Core.Keys.Char "s") when not pager_input_mode ->
+        toggle_streaming s
+    | Some (Miaou.Core.Keys.Char "f") when not pager_input_mode ->
         let pager, _ = Pager.handle_key ~win s.pager ~key:"f" in
         {s with pager}
     | Some k ->
         let key = Miaou.Core.Keys.to_string k in
+        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+          Printf.eprintf
+            "[DEMO] handle_key: raw='%s' parsed='%s' input_mode=%b\n%!"
+            key_str
+            key
+            pager_input_mode ;
         let pager, _ = Pager.handle_key ~win s.pager ~key in
         {s with pager}
-    | None -> s
+    | None ->
+        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+          Printf.eprintf "[DEMO] handle_key: raw='%s' -> None\n%!" key_str ;
+        s
 
   let move s _ = s
 
   let refresh s =
+    (* Background tail_watcher thread handles file reading, so refresh just updates state *)
+    let s =
+      match s.tail with
+      | None -> s
+      | Some _tail ->
+          (* Flush any pending lines that the background thread added *)
+          Pager.flush_pending_if_needed s.pager ;
+          {s with streaming = true}
+    in
     let ticks = s.ticks + 1 in
-    if s.streaming && ticks mod 5 = 0 then (
+    if s.streaming && s.tail = None && ticks mod 5 = 0 then (
       Pager.append_lines_batched
         s.pager
         [Printf.sprintf "stream chunk #%d" (ticks / 5)] ;
@@ -619,18 +861,24 @@ module Pager_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let service_cycle s _ = s
 
-  let handle_modal_key s _ ~size:_ = s
+  let handle_modal_key s key ~size =
+    (* Forward Enter to pager when in search mode *)
+    let win = win_from size in
+    let pager, _ = Pager.handle_key ~win s.pager ~key in
+    {s with pager}
 
   let next_page s = s.next_page
 
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
 
-  let has_modal _ = false
+  let has_modal s =
+    match s.pager.Pager.input_mode with `Search_edit -> true | _ -> false
 end
 
 module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
@@ -680,6 +928,7 @@ module Tree_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -744,6 +993,7 @@ module Layout_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back _ = {next_page = Some launcher_page_name}
@@ -817,6 +1067,7 @@ module Link_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -945,6 +1196,7 @@ module Checkbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1044,6 +1296,7 @@ module Radio_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1118,6 +1371,7 @@ let handle_key s key_str ~size:_ =
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1177,6 +1431,7 @@ module Button_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1246,6 +1501,7 @@ module Validated_textbox_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1346,6 +1602,7 @@ module Breadcrumbs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1425,6 +1682,7 @@ module Tabs_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1524,6 +1782,7 @@ module Toast_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -1596,6 +1855,7 @@ module Spinner_progress_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -1738,6 +1998,7 @@ module Flex_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back _ = {next_page = Some launcher_page_name}
@@ -1801,6 +2062,7 @@ module Description_list_demo : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -1904,6 +2166,7 @@ let view s ~focus:_ ~size =
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s.sidebar_open
@@ -2086,6 +2349,7 @@ This demo reads real system metrics from `/proc` (Linux) and auto-updates the di
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -2177,7 +2441,7 @@ This demo shows sine/cosine waves. Press Space to add more points.
           ~height:18
           ~series:[sine_series; cosine_series]
           ~title:"Trigonometric Functions"
-        ();
+          ();
       point_count = 15;
       mode = Line_chart.ASCII;
       next_page = None;
@@ -2219,7 +2483,8 @@ This demo shows sine/cosine waves. Press Space to add more points.
     let hint =
       W.dim
         (Printf.sprintf
-           "Points: %d • Space to add more • b toggle Braille (%s) • t tutorial • Esc returns"
+           "Points: %d • Space to add more • b toggle Braille (%s) • t \
+            tutorial • Esc returns"
            s.point_count
            mode_label)
     in
@@ -2239,7 +2504,9 @@ This demo shows sine/cosine waves. Press Space to add more points.
         s
     | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "b" ->
         let mode =
-          match s.mode with Line_chart.ASCII -> Line_chart.Braille | Braille -> Line_chart.ASCII
+          match s.mode with
+          | Line_chart.ASCII -> Line_chart.Braille
+          | Braille -> Line_chart.ASCII
         in
         {s with mode}
     | Some (Miaou.Core.Keys.Char " ") -> add_points s
@@ -2260,6 +2527,7 @@ This demo shows sine/cosine waves. Press Space to add more points.
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -2408,7 +2676,9 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
     let _, _, net_val = Sparkline.get_bounds s_net_adjusted in
 
     let spark_mode =
-      match s.mode with Line_chart.ASCII -> Sparkline.ASCII | Braille -> Braille
+      match s.mode with
+      | Line_chart.ASCII -> Sparkline.ASCII
+      | Braille -> Braille
     in
 
     let cpu_line_adj =
@@ -2543,7 +2813,9 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
         go_home s
     | Some (Miaou.Core.Keys.Char k) when String.lowercase_ascii k = "b" ->
         let mode =
-          match s.mode with Line_chart.ASCII -> Line_chart.Braille | Braille -> Line_chart.ASCII
+          match s.mode with
+          | Line_chart.ASCII -> Line_chart.Braille
+          | Braille -> Line_chart.ASCII
         in
         {s with mode}
     | _ -> s
@@ -2563,6 +2835,7 @@ module System_monitor_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -2688,6 +2961,7 @@ This demo shows daily sales. Press Space to randomize data.
   let next_page s = s.next_page
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = go_home s
@@ -2844,6 +3118,7 @@ This demo shows QR codes for different types of data. Press 1-4 to switch betwee
   let next_page s = s.next_page
 
   let keymap _ = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -3100,6 +3375,7 @@ This demo shows both file loading (PNG) and procedural image generation.
   let next_page s = s.next_page
 
   let keymap _ = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -3453,6 +3729,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = s
@@ -3498,6 +3775,7 @@ and Key_handling_demo_page : Miaou.Core.Tui_page.PAGE_SIG = struct
   (* legacy key_bindings removed *)
 
   let keymap (_ : state) = []
+
   let handled_keys () = []
 
   let back s = {s with next_page = Some launcher_page_name}
@@ -3512,10 +3790,7 @@ let register_page () =
   if not (Miaou.Core.Registry.exists launcher_page_name) then
     Miaou.Core.Registry.register launcher_page_name page
 
-type 'size bench_case = {
-  name : string;
-  run : size:'size -> int;
-}
+type 'size bench_case = {name : string; run : size:'size -> int}
 
 type bench = LTerm_geom.size bench_case
 
@@ -3544,8 +3819,8 @@ let line_chart_braille_case =
         }
       in
       [
-        make_wave (fun x -> (sin (x /. 4.)) *. 30. +. 50.) (Some "32");
-        make_wave (fun x -> (cos (x /. 5.)) *. 30. +. 40.) (Some "34");
+        make_wave (fun x -> (sin (x /. 4.) *. 30.) +. 50.) (Some "32");
+        make_wave (fun x -> (cos (x /. 5.) *. 30.) +. 40.) (Some "34");
       ]
     in
     let chart =
@@ -3596,7 +3871,7 @@ let bar_chart_braille_case =
     let data =
       List.mapi
         (fun i lbl ->
-          let base = 40. +. (float_of_int (i * 7 mod 30)) in
+          let base = 40. +. float_of_int (i * 7 mod 30) in
           (lbl, base, None))
         labels
     in

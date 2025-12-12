@@ -10,6 +10,28 @@
 
 (* local Widgets functions are referenced qualified; no open needed here *)
 
+let debug_enabled = lazy (Sys.getenv_opt "MIAOU_DEBUG" = Some "1")
+
+let debug fmt =
+  Printf.ksprintf
+    (fun s -> if Lazy.force debug_enabled then Printf.eprintf "%s%!" s)
+    fmt
+
+(* ANSI color palette for UI elements *)
+module Colors = struct
+  (* JSON syntax highlighting *)
+  let json_number = 136 (* orange/brown *)
+
+  let json_bool_null = 34 (* blue *)
+
+  let json_key = 33 (* yellow *)
+
+  let json_string = 178 (* pale yellow *)
+
+  (* Status indicators *)
+  let status_dim = 242 (* gray *)
+end
+
 type t = {
   title : string option;
   mutable lines : string list; (* made mutable to support incremental appends *)
@@ -28,11 +50,15 @@ type t = {
   mutable last_flush : float; (* timestamp of last flush, seconds since epoch *)
   mutable flush_interval_ms : int;
       (* minimum interval between flushes in milliseconds *)
+  mutable last_win : int;
+      (* last render window height to keep follow anchored *)
   mutable search : string option;
   mutable is_regex : bool;
   mutable input_mode : [`None | `Search_edit | `Lookup];
   mutable input_buffer : string;
   mutable input_pos : int;
+  mutable notify_render : (unit -> unit) option;
+      (* optional callback to request a UI render when content changes *)
 }
 
 let default_win = 20
@@ -52,25 +78,36 @@ let clamp lo hi x = max lo (min hi x)
 let build_body_buffer ~wrap ~cols lines =
   let buf =
     let est =
-      List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines
-      + 16
+      List.fold_left (fun acc l -> acc + String.length l + 1) 0 lines + 16
     in
     Buffer.create est
   in
   let first = ref true in
   let add_line line =
     if !first then first := false else Buffer.add_char buf '\n' ;
+    if String.contains line '\027' then
+      debug
+        "[PAGER] Adding line with ANSI codes (len=%d)\n"
+        (String.length line) ;
     Buffer.add_string buf line
   in
   if wrap then
     let width = max 10 (cols - 2) in
     List.iter
-      (fun line -> Widgets.wrap_text ~width line |> List.iter add_line)
+      (fun line ->
+        if String.contains line '\027' then
+          debug "[PAGER] Before wrap: line has ANSI codes\n" ;
+        let wrapped = Widgets.wrap_text ~width line in
+        if String.contains line '\027' then
+          debug
+            "[PAGER] After wrap: %d lines, checking for ANSI...\n"
+            (List.length wrapped) ;
+        List.iter add_line wrapped)
       lines
   else List.iter add_line lines ;
   Buffer.contents buf
 
-let open_lines ?title lines =
+let open_lines ?title ?notify_render lines =
   {
     title;
     lines;
@@ -85,32 +122,35 @@ let open_lines ?title lines =
     last_flush = 0.;
     flush_interval_ms = 200;
     (* default: 200ms -> conservative flush rate *)
+    last_win = default_win;
     search = None;
     is_regex = false;
     input_mode = `None;
     input_buffer = "";
     input_pos = 0;
+    notify_render;
   }
 
-let open_text ?title s = open_lines ?title (split_lines s)
+let open_text ?title ?notify_render s =
+  open_lines ?title ?notify_render (split_lines s)
 
 let set_offset t o = {t with offset = o}
 
 let set_search t s = {t with search = s; offset = 0}
 
 (* Append APIs ----------------------------------------------------------- *)
-let append_lines t ls = t.lines <- t.lines @ ls
+let append_lines_follow t =
+  if t.follow then t.offset <- max 0 (List.length t.lines - t.last_win)
+
+let append_lines t ls =
+  t.lines <- t.lines @ ls ;
+  append_lines_follow t
 
 let append_text t s =
   let more = split_lines s in
   append_lines t more
 
 (* --- Batched append APIs: push into pending buffer and let render() flush at a limited rate --- *)
-(* Notification hook: optional global callback set by UI driver so pager can request a render. *)
-let notify_render_val : (unit -> unit) option ref = ref None
-
-let set_notify_render f = notify_render_val := f
-
 let append_lines_batched t ls =
   (* accumulate into pending_rev (reversed) for O(1) appends; set dirty flag
 		 and notify renderer if present so UI can wake up quickly. *)
@@ -118,7 +158,7 @@ let append_lines_batched t ls =
   t.pending_dirty <- true ;
   (* Invalidate cached rendered body: content changed (or will) *)
   t.cached_body <- None ;
-  match !notify_render_val with
+  match t.notify_render with
   | Some f -> ( try f () with _ -> ())
   | None -> (
       (* No notifier registered: flush immediately so background appends
@@ -130,7 +170,8 @@ let append_lines_batched t ls =
         if t.pending_rev <> [] then (
           let to_add = List.rev t.pending_rev in
           t.pending_rev <- [] ;
-          t.lines <- t.lines @ to_add) ;
+          t.lines <- t.lines @ to_add ;
+          append_lines_follow t) ;
         t.pending_dirty <- false ;
         (* Invalidate cached body after flush so next build recomputes it *)
         t.cached_body <- None ;
@@ -158,7 +199,8 @@ let flush_pending_if_needed ?(force = false) t =
       if t.pending_rev <> [] then (
         let to_add = List.rev t.pending_rev in
         t.pending_rev <- [] ;
-        t.lines <- t.lines @ to_add) ;
+        t.lines <- t.lines @ to_add ;
+        append_lines_follow t) ;
       t.pending_dirty <- false ;
       t.last_flush <- now)
 
@@ -209,10 +251,10 @@ let json_streamer_create () =
 let json_streamer_feed st chunk =
   let n = String.length chunk in
   (* Helper to emit ANSI colored text *)
-  let color_num s = Widgets.fg 136 s in
-  let color_bool_null s = Widgets.fg 34 s in
-  let color_key s = Widgets.fg 33 s in
-  let color_string s = Widgets.fg 178 s in
+  let color_num s = Widgets.fg Colors.json_number s in
+  let color_bool_null s = Widgets.fg Colors.json_bool_null s in
+  let color_key s = Widgets.fg Colors.json_key s in
+  let color_string s = Widgets.fg Colors.json_string s in
 
   let flush_token () =
     match st.token_buf with
@@ -436,6 +478,14 @@ let visible_slice ~win t =
 let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
   (* flush buffered lines opportunistically on render *)
   flush_pending_if_needed t ;
+  t.last_win <- win ;
+  debug
+    "[PAGER] render called: search=%s input_mode=%s\n"
+    (match t.search with Some s -> "Some('" ^ s ^ "')" | None -> "None")
+    (match t.input_mode with
+    | `None -> "None"
+    | `Search_edit -> "Search_edit"
+    | `Lookup -> "Lookup") ;
   let start, stop = visible_slice ~win t in
   let body_lines =
     let slice =
@@ -448,9 +498,18 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
       in
       take_range 0 [] t.lines
     in
+    debug
+      "[PAGER] render: t.search=%s, is_regex=%b, slice_len=%d\n"
+      (match t.search with Some s -> "Some('" ^ s ^ "')" | None -> "None")
+      t.is_regex
+      (List.length slice) ;
     match t.search with
     | None -> slice
     | Some q ->
+        debug
+          "[PAGER] Highlighting search query: '%s' in %d lines\n"
+          q
+          (List.length slice) ;
         List.map
           (Widgets.highlight_matches ~is_regex:t.is_regex ~query:(Some q))
           slice
@@ -461,18 +520,51 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
       Printf.sprintf "%d-%d/%d" (start + 1) stop (List.length t.lines)
     in
     let mode = if t.follow then " [follow]" else "" in
-    Widgets.dim (Widgets.fg 242 (pos ^ mode))
+    Widgets.dim (Widgets.fg Colors.status_dim (pos ^ mode))
   in
   let cols = match cols with Some c -> c | None -> 80 in
+  (* Show search input prompt when in search edit mode *)
+  let search_prompt =
+    match t.input_mode with
+    | `Search_edit ->
+        let prompt = "Search: " in
+        (* Use ASCII fallback for cursor to ensure compatibility across terminals *)
+        let cursor =
+          if Lazy.force Widgets.use_ascii_borders then "|" else "▌"
+        in
+        (* Insert cursor at input position *)
+        let before =
+          String.sub
+            t.input_buffer
+            0
+            (min t.input_pos (String.length t.input_buffer))
+        in
+        let after =
+          if t.input_pos < String.length t.input_buffer then
+            String.sub
+              t.input_buffer
+              t.input_pos
+              (String.length t.input_buffer - t.input_pos)
+          else ""
+        in
+        Some (Widgets.bg 236 (prompt ^ before ^ cursor ^ after))
+    | _ -> None
+  in
+  let header =
+    match search_prompt with Some sp -> [status; sp] | None -> [status]
+  in
   let footer =
     let hints =
-      [
-        ("Up/Down", "scroll");
-        ("PgUp/PgDn", "page");
-        ("/", "search");
-        ("n/p", "next/prev");
-        ("f", if t.follow then "follow off" else "follow on");
-      ]
+      match t.input_mode with
+      | `Search_edit -> [("Enter", "search"); ("Esc", "cancel")]
+      | _ ->
+          [
+            ("Up/Down", "scroll");
+            ("PgUp/PgDn", "page");
+            ("/", "search");
+            ("n/p", "next/prev");
+            ("f", if t.follow then "follow off" else "follow on");
+          ]
     in
     Widgets.footer_hints_wrapped_capped
       ~cols
@@ -480,7 +572,7 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
       hints
   in
   let body = build_body_buffer ~wrap ~cols body_lines in
-  Widgets.render_frame ~title ~header:[status] ~body ~footer ~cols ()
+  Widgets.render_frame ~title ~header ~body ~footer ~cols ()
 
 (* Kept for compatibility; callers that can compute terminal cols should prefer
    calling [render ~win ~cols] directly to fully utilize available width. *)
@@ -488,62 +580,106 @@ let render_with_size ~size t ~focus = render ~win:(win_of_size size) t ~focus
 
 (* Key handling --------------------------------------------------------- *)
 
-let handle_key ?win (t : t) ~key : t * bool =
-  let win = match win with Some w -> w | None -> default_win in
-  let total = List.length t.lines in
-  let page = max 1 (win - 1) in
-  let consumed = true in
+(* Helper to insert a character at the current cursor position in search input *)
+let insert_char t c =
+  let before = String.sub t.input_buffer 0 t.input_pos in
+  let after =
+    if t.input_pos < String.length t.input_buffer then
+      String.sub
+        t.input_buffer
+        t.input_pos
+        (String.length t.input_buffer - t.input_pos)
+    else ""
+  in
+  t.input_buffer <- before ^ c ^ after ;
+  t.input_pos <- t.input_pos + String.length c ;
+  t
+
+(* Check if a key is a printable character for search input *)
+let is_printable_char key =
+  String.length key = 1
+  &&
+  let c = Char.code key.[0] in
+  (c >= 32 && c < 127) || c >= 128
+
+(* Handle search-mode input keys; returns Some result if handled *)
+let handle_search_input t ~key =
   match key with
-  | "Up" ->
-      ( {
-          t with
-          offset = clamp 0 (max 0 (total - win)) (t.offset - 1);
-          follow = false;
-        },
-        consumed )
-  | "Down" ->
-      ( {
-          t with
-          offset = clamp 0 (max 0 (total - win)) (t.offset + 1);
-          follow = false;
-        },
-        consumed )
-  | "Page_up" ->
-      ( {
-          t with
-          offset = clamp 0 (max 0 (total - win)) (t.offset - page);
-          follow = false;
-        },
-        consumed )
-  | "Page_down" ->
-      ( {
-          t with
-          offset = clamp 0 (max 0 (total - win)) (t.offset + page);
-          follow = false;
-        },
-        consumed )
-  | "g" -> ({t with offset = 0; follow = false}, consumed)
+  | "Enter" | "Return" ->
+      debug "[PAGER] Enter pressed in search mode, query='%s'\n" t.input_buffer ;
+      let q = String.trim t.input_buffer in
+      if q = "" then (
+        t.search <- None ;
+        t.input_mode <- `None)
+      else (
+        t.search <- Some q ;
+        t.input_mode <- `None) ;
+      debug
+        "[PAGER] Search set to: %s\n"
+        (match t.search with Some s -> "'" ^ s ^ "'" | None -> "None") ;
+      Some (t, true)
+  | "Esc" | "Escape" ->
+      t.input_mode <- `None ;
+      Some (t, true)
+  | ("Backspace" | "BackSpace") when t.input_pos > 0 ->
+      let before = String.sub t.input_buffer 0 (t.input_pos - 1) in
+      let after_start = t.input_pos in
+      let after_len = String.length t.input_buffer - after_start in
+      let after =
+        if after_len > 0 then String.sub t.input_buffer after_start after_len
+        else ""
+      in
+      t.input_buffer <- before ^ after ;
+      t.input_pos <- t.input_pos - 1 ;
+      Some (t, true)
+  | "Backspace" | "BackSpace" ->
+      Some (t, true) (* consume but do nothing at position 0 *)
+  | "Left" when t.input_pos > 0 ->
+      t.input_pos <- t.input_pos - 1 ;
+      Some (t, true)
+  | "Left" -> Some (t, true)
+  | "Right" when t.input_pos < String.length t.input_buffer ->
+      t.input_pos <- t.input_pos + 1 ;
+      Some (t, true)
+  | "Right" -> Some (t, true)
+  | _ when is_printable_char key -> Some (insert_char t key, true)
+  | _ -> None (* not handled in search mode *)
+
+(* Handle navigation keys; returns (t, consumed) *)
+let handle_nav_key t ~key ~win ~total ~page =
+  let max_offset = max 0 (total - win) in
+  (* Helper: if we land at max_offset (bottom), auto-resume follow if it was on *)
+  let with_auto_follow t new_offset =
+    let clamped_offset = clamp 0 max_offset new_offset in
+    (* Re-enable follow if: (1) trying to scroll past bottom, OR (2) exactly at bottom *)
+    let at_or_past_bottom = new_offset >= max_offset in
+    (* Auto-resume follow when user scrolls to/past bottom and streaming is active *)
+    t.offset <- clamped_offset ;
+    t.follow <- at_or_past_bottom && t.streaming ;
+    t
+  in
+  match key with
+  | "Up" -> Some (with_auto_follow t (t.offset - 1), true)
+  | "Down" -> Some (with_auto_follow t (t.offset + 1), true)
+  | "Page_up" -> Some (with_auto_follow t (t.offset - page), true)
+  | "Page_down" -> Some (with_auto_follow t (t.offset + page), true)
+  | "g" ->
+      t.offset <- 0 ;
+      t.follow <- false ;
+      Some (t, true)
   | "G" ->
-      let last = max 0 (total - win) in
-      ({t with offset = last; follow = false}, consumed)
-  | "f" | "F" -> ({t with follow = not t.follow}, consumed)
+      t.offset <- max_offset ;
+      t.follow <- t.streaming ;
+      Some (t, true)
+  | "f" | "F" ->
+      t.follow <- not t.follow ;
+      if t.follow then t.offset <- max_offset ;
+      Some (t, true)
   | "/" ->
-      ( {t with input_mode = `Search_edit; input_buffer = ""; input_pos = 0},
-        consumed )
-  | "Enter" -> (
-      match t.input_mode with
-      | `Search_edit ->
-          let q = String.trim t.input_buffer in
-          let t' =
-            if q = "" then {t with search = None; input_mode = `None}
-            else {t with search = Some q; input_mode = `None}
-          in
-          (t', consumed)
-      | _ -> (t, false))
-  | "Esc" | "Escape" -> (
-      match t.input_mode with
-      | `Search_edit -> ({t with input_mode = `None}, consumed)
-      | _ -> (t, false))
+      t.input_mode <- `Search_edit ;
+      t.input_buffer <- "" ;
+      t.input_pos <- 0 ;
+      Some (t, true)
   | "n" -> (
       let q = match t.search with Some s -> s | None -> "" in
       match
@@ -553,13 +689,38 @@ let handle_key ?win (t : t) ~key : t * bool =
           ~q
           ~is_regex:t.is_regex
       with
-      | None -> (t, true)
-      | Some i -> ({t with offset = clamp 0 (max 0 (total - win)) i}, true))
+      | None -> Some (t, true)
+      | Some i ->
+          t.offset <- clamp 0 max_offset i ;
+          Some (t, true))
   | "p" -> (
       let q = match t.search with Some s -> s | None -> "" in
       match
         find_prev t.lines ~start:(max 0 (t.offset - 1)) ~q ~is_regex:t.is_regex
       with
-      | None -> (t, true)
-      | Some i -> ({t with offset = clamp 0 (max 0 (total - win)) i}, true))
-  | _ -> (t, false)
+      | None -> Some (t, true)
+      | Some i ->
+          t.offset <- clamp 0 max_offset i ;
+          Some (t, true))
+  | _ -> None
+
+let handle_key ?win (t : t) ~key : t * bool =
+  debug
+    "[PAGER] handle_key: key='%s' input_mode=%s\n"
+    key
+    (match t.input_mode with
+    | `Search_edit -> "Search_edit"
+    | `Lookup -> "Lookup"
+    | `None -> "None") ;
+  let win = match win with Some w -> w | None -> default_win in
+  let total = List.length t.lines in
+  let page = max 1 (win - 1) in
+  match t.input_mode with
+  | `Search_edit -> (
+      match handle_search_input t ~key with
+      | Some result -> result
+      | None -> (t, false))
+  | `None | `Lookup -> (
+      match handle_nav_key t ~key ~win ~total ~page with
+      | Some result -> result
+      | None -> (t, false))
