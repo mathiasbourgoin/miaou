@@ -248,9 +248,12 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       Driver_common.Pager_notify.create ~debounce_s:0.08 ()
     in
 
+    (* Notification callback for pager widgets to request render when content changes.
+       Applications creating pager widgets should pass this to ~notify_render parameter. *)
     let notify_render_from_pager_flag () =
       Driver_common.Pager_notify.notify pager_notifier
     in
+    let () = ignore notify_render_from_pager_flag in
 
     (* Buffered reader using Unix.read: keep a pending string of bytes read from
        the fd. Block until at least one byte is available, then for ESC-starting
@@ -434,207 +437,197 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
         if Atomic.get resize_pending then (
           Atomic.set resize_pending false ;
           `Refresh)
-        else
+        else if
           (* If a background append requested a render, service it as a refresh
            tick but only when the debounce window has elapsed.
            This coalesces bursts from background threads. *)
-          if Driver_common.Pager_notify.should_refresh pager_notifier then (
-            Driver_common.Pager_notify.mark_refreshed pager_notifier ;
-            `Refresh)
+          Driver_common.Pager_notify.should_refresh pager_notifier
+        then (
+          Driver_common.Pager_notify.mark_refreshed pager_notifier ;
+          `Refresh)
+        else (
+          (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages. *)
+          if String.length !pending = 0 then ignore (refill 0.15) ;
+          if String.length !pending = 0 then
+            (* Inject a synthetic refresh marker into the pending buffer to signal an idle tick. *)
+            pending := "\000" ^ !pending ;
+          if String.length !pending = 0 then raise End_of_file ;
+          let first = String.get !pending 0 in
+          (* If not ESC, consume single byte and return it. *)
+          if Char.code first <> 27 then (
+            pending :=
+              if String.length !pending > 1 then
+                String.sub !pending 1 (String.length !pending - 1)
+              else "" ;
+            if first = '\000' then `Refresh
+            else if first = '\n' || first = '\r' then `Enter
+            else if Char.code first = 9 then `NextPage
+            else if Char.code first = 127 then `Other "Backspace"
+            else
+              let code = Char.code first in
+              if code >= 1 && code <= 26 then
+                let letter = Char.chr (code + 96) in
+                `Other ("C-" ^ String.make 1 letter)
+              else `Other (String.make 1 first))
           else (
-            (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages. *)
-            if String.length !pending = 0 then ignore (refill 0.15) ;
-            if String.length !pending = 0 then
-              (* Inject a synthetic refresh marker into the pending buffer to signal an idle tick. *)
-              pending := "\000" ^ !pending ;
-            if String.length !pending = 0 then raise End_of_file ;
-            let first = String.get !pending 0 in
-            (* If not ESC, consume single byte and return it. *)
-            if Char.code first <> 27 then (
-              pending :=
-                if String.length !pending > 1 then
-                  String.sub !pending 1 (String.length !pending - 1)
-                else "" ;
-              if first = '\000' then `Refresh
-              else if first = '\n' || first = '\r' then `Enter
-              else if Char.code first = 9 then `NextPage
-              else if Char.code first = 127 then `Other "Backspace"
-              else
-                let code = Char.code first in
-                if code >= 1 && code <= 26 then
-                  let letter = Char.chr (code + 96) in
-                  `Other ("C-" ^ String.make 1 letter)
-                else `Other (String.make 1 first))
-            else (
-              (* first == ESC (27) *)
-              (* Gather a short window for sequence completion. *)
-              for _ = 1 to 5 do
-                if String.length !pending >= 3 then () else ignore (refill 0.02)
-              done ;
-              let len = String.length !pending in
-              if len = 1 then (
-                pending := "" ;
-                `Other "Esc")
-              else if len >= 3 && String.get !pending 1 = '[' then (
-                if
-                  (* Handle SGR mouse: ESC [ < btn;col;row (M|m) *)
-                  len >= 6 && String.get !pending 2 = '<'
-                then (
-                  (* Read until trailing 'M' or 'm' arrives. *)
-                  let rec ensure_full_mouse timeout =
-                    if timeout <= 0 then ()
+            (* first == ESC (27) *)
+            (* Gather a short window for sequence completion. *)
+            for _ = 1 to 5 do
+              if String.length !pending >= 3 then () else ignore (refill 0.02)
+            done ;
+            let len = String.length !pending in
+            if len = 1 then (
+              pending := "" ;
+              `Other "Esc")
+            else if len >= 3 && String.get !pending 1 = '[' then (
+              if
+                (* Handle SGR mouse: ESC [ < btn;col;row (M|m) *)
+                len >= 6 && String.get !pending 2 = '<'
+              then (
+                (* Read until trailing 'M' or 'm' arrives. *)
+                let rec ensure_full_mouse timeout =
+                  if timeout <= 0 then ()
+                  else
+                    let l = String.length !pending in
+                    if l > 0 then (
+                      let last = String.get !pending (l - 1) in
+                      if last = 'M' || last = 'm' then ()
+                      else ignore (refill 0.02) ;
+                      ensure_full_mouse (timeout - 1))
+                    else (
+                      ignore (refill 0.02) ;
+                      ensure_full_mouse (timeout - 1))
+                in
+                ensure_full_mouse 20 ;
+                let seq = !pending in
+                (* Find terminating M/m *)
+                let l = String.length seq in
+                let term_idx =
+                  let rec find i =
+                    if i >= l then l - 1
                     else
-                      let l = String.length !pending in
-                      if l > 0 then (
-                        let last = String.get !pending (l - 1) in
-                        if last = 'M' || last = 'm' then ()
-                        else ignore (refill 0.02) ;
-                        ensure_full_mouse (timeout - 1))
+                      let c = String.get seq i in
+                      if c = 'M' || c = 'm' then i else find (i + 1)
+                  in
+                  find 0
+                in
+                let chunk = String.sub seq 0 (min (term_idx + 1) l) in
+                (* Consume chunk from pending *)
+                pending :=
+                  if String.length seq > String.length chunk then
+                    String.sub
+                      seq
+                      (String.length chunk)
+                      (String.length seq - String.length chunk)
+                  else "" ;
+                (* Parse ESC [ < btn;col;row (M|m) *)
+                let parsed =
+                  try
+                    if String.length chunk < 6 then None
+                    else if String.get chunk 0 <> '\027' then None
+                    else if String.get chunk 1 <> '[' then None
+                    else if String.get chunk 2 <> '<' then None
+                    else
+                      let body = String.sub chunk 3 (String.length chunk - 4) in
+                      (* body like: "b;c;rM" or "b;c;rm" *)
+                      let lastc = String.get chunk (String.length chunk - 1) in
+                      let parts = String.split_on_char ';' body in
+                      match parts with
+                      | [b; c; r] -> (
+                          let btn = int_of_string_opt b in
+                          let col = int_of_string_opt c in
+                          let row =
+                            let r' = String.sub r 0 (String.length r - 0) in
+                            int_of_string_opt (String.trim r')
+                          in
+                          match (btn, col, row) with
+                          | Some _btn, Some col, Some row ->
+                              Some (row, col, lastc)
+                          | _ -> None)
+                      | _ -> None
+                  with _ -> None
+                in
+                match parsed with
+                | Some (row, col, lastc) ->
+                    (match Logger_capability.get () with
+                    | Some logger ->
+                        logger.logf
+                          Debug
+                          (Printf.sprintf "MOUSE: row=%d col=%d" row col)
+                    | None -> ()) ;
+                    (* Emit click only on button release to avoid flooding on motion. *)
+                    if lastc = 'm' then
+                      `Other (Printf.sprintf "Mouse:%d:%d" row col)
+                    else `Other "MouseMove"
+                | None -> `Other "Esc")
+              else
+                let code = String.get !pending 2 in
+                (* consume ESC,[,code *)
+                pending :=
+                  if len > 3 then String.sub !pending 3 (len - 3) else "" ;
+                match code with
+                | 'M' ->
+                    (* X10 mouse tracking: ESC [ M b x y, with x,y,btn encoded +32 *)
+                    let rec ensure_bytes n timeout =
+                      if timeout <= 0 then false
+                      else if String.length !pending >= n then true
                       else (
                         ignore (refill 0.02) ;
-                        ensure_full_mouse (timeout - 1))
-                  in
-                  ensure_full_mouse 20 ;
-                  let seq = !pending in
-                  (* Find terminating M/m *)
-                  let l = String.length seq in
-                  let term_idx =
-                    let rec find i =
-                      if i >= l then l - 1
-                      else
-                        let c = String.get seq i in
-                        if c = 'M' || c = 'm' then i else find (i + 1)
+                        ensure_bytes n (timeout - 1))
                     in
-                    find 0
-                  in
-                  let chunk = String.sub seq 0 (min (term_idx + 1) l) in
-                  (* Consume chunk from pending *)
-                  pending :=
-                    if String.length seq > String.length chunk then
-                      String.sub
-                        seq
-                        (String.length chunk)
-                        (String.length seq - String.length chunk)
-                    else "" ;
-                  (* Parse ESC [ < btn;col;row (M|m) *)
-                  let parsed =
-                    try
-                      if String.length chunk < 6 then None
-                      else if String.get chunk 0 <> '\027' then None
-                      else if String.get chunk 1 <> '[' then None
-                      else if String.get chunk 2 <> '<' then None
-                      else
-                        let body =
-                          String.sub chunk 3 (String.length chunk - 4)
-                        in
-                        (* body like: "b;c;rM" or "b;c;rm" *)
-                        let lastc =
-                          String.get chunk (String.length chunk - 1)
-                        in
-                        let parts = String.split_on_char ';' body in
-                        match parts with
-                        | [b; c; r] -> (
-                            let btn = int_of_string_opt b in
-                            let col = int_of_string_opt c in
-                            let row =
-                              let r' = String.sub r 0 (String.length r - 0) in
-                              int_of_string_opt (String.trim r')
-                            in
-                            match (btn, col, row) with
-                            | Some _btn, Some col, Some row ->
-                                Some (row, col, lastc)
-                            | _ -> None)
-                        | _ -> None
-                    with _ -> None
-                  in
-                  match parsed with
-                  | Some (row, col, lastc) ->
+                    if ensure_bytes 3 20 then (
+                      let _b = String.get !pending 0 in
+                      let x = String.get !pending 1 in
+                      let y = String.get !pending 2 in
+                      pending :=
+                        if String.length !pending > 3 then
+                          String.sub !pending 3 (String.length !pending - 3)
+                        else "" ;
+                      let col = max 1 (Char.code x - 32) in
+                      let row = max 1 (Char.code y - 32) in
                       (match Logger_capability.get () with
                       | Some logger ->
                           logger.logf
                             Debug
-                            (Printf.sprintf "MOUSE: row=%d col=%d" row col)
+                            (Printf.sprintf "MOUSE_X10: row=%d col=%d" row col)
                       | None -> ()) ;
-                      (* Emit click only on button release to avoid flooding on motion. *)
-                      if lastc = 'm' then
-                        `Other (Printf.sprintf "Mouse:%d:%d" row col)
-                      else `Other "MouseMove"
-                  | None -> `Other "Esc")
-                else
-                  let code = String.get !pending 2 in
-                  (* consume ESC,[,code *)
-                  pending :=
-                    if len > 3 then String.sub !pending 3 (len - 3) else "" ;
-                  match code with
-                  | 'M' ->
-                      (* X10 mouse tracking: ESC [ M b x y, with x,y,btn encoded +32 *)
-                      let rec ensure_bytes n timeout =
-                        if timeout <= 0 then false
-                        else if String.length !pending >= n then true
-                        else (
-                          ignore (refill 0.02) ;
-                          ensure_bytes n (timeout - 1))
-                      in
-                      if ensure_bytes 3 20 then (
-                        let _b = String.get !pending 0 in
-                        let x = String.get !pending 1 in
-                        let y = String.get !pending 2 in
-                        pending :=
-                          if String.length !pending > 3 then
-                            String.sub !pending 3 (String.length !pending - 3)
-                          else "" ;
-                        let col = max 1 (Char.code x - 32) in
-                        let row = max 1 (Char.code y - 32) in
-                        (match Logger_capability.get () with
-                        | Some logger ->
-                            logger.logf
-                              Debug
-                              (Printf.sprintf
-                                 "MOUSE_X10: row=%d col=%d"
-                                 row
-                                 col)
-                        | None -> ()) ;
-                        `Other (Printf.sprintf "Mouse:%d:%d" row col))
-                      else `Other "Esc"
-                  | 'A' -> `Up
-                  | 'B' -> `Down
-                  | 'C' -> `Right
-                  | 'D' -> `Left
-                  | '3' ->
-                      (* Common Delete sequence: ESC [ 3 ~ *)
-                      if
-                        String.length !pending > 0
-                        && String.get !pending 0 = '~'
-                      then (
-                        pending :=
-                          if String.length !pending > 1 then
-                            String.sub !pending 1 (String.length !pending - 1)
-                          else "" ;
-                        `Other "Delete")
-                      else `Other "3"
-                  | c -> `Other (String.make 1 c))
-              else if len >= 2 && String.get !pending 1 = 'O' then (
-                let code = if len >= 3 then String.get !pending 2 else '\000' in
-                pending :=
-                  if len > 2 then String.sub !pending 2 (len - 2) else "" ;
-                match code with
+                      `Other (Printf.sprintf "Mouse:%d:%d" row col))
+                    else `Other "Esc"
                 | 'A' -> `Up
                 | 'B' -> `Down
                 | 'C' -> `Right
                 | 'D' -> `Left
-                | '\000' -> `Other "Esc"
+                | '3' ->
+                    (* Common Delete sequence: ESC [ 3 ~ *)
+                    if String.length !pending > 0 && String.get !pending 0 = '~'
+                    then (
+                      pending :=
+                        if String.length !pending > 1 then
+                          String.sub !pending 1 (String.length !pending - 1)
+                        else "" ;
+                      `Other "Delete")
+                    else `Other "3"
                 | c -> `Other (String.make 1 c))
-              else if
-                (* ESC followed by other single byte: consume ESC and next byte if present *)
-                len >= 2
-              then (
-                let second = String.get !pending 1 in
-                pending :=
-                  if len > 2 then String.sub !pending 2 (len - 2) else "" ;
-                `Other (String.make 1 second))
-              else (
-                pending := "" ;
-                `Other "Esc")))
+            else if len >= 2 && String.get !pending 1 = 'O' then (
+              let code = if len >= 3 then String.get !pending 2 else '\000' in
+              pending := if len > 2 then String.sub !pending 2 (len - 2) else "" ;
+              match code with
+              | 'A' -> `Up
+              | 'B' -> `Down
+              | 'C' -> `Right
+              | 'D' -> `Left
+              | '\000' -> `Other "Esc"
+              | c -> `Other (String.make 1 c))
+            else if
+              (* ESC followed by other single byte: consume ESC and next byte if present *)
+              len >= 2
+            then (
+              let second = String.get !pending 1 in
+              pending := if len > 2 then String.sub !pending 2 (len - 2) else "" ;
+              `Other (String.make 1 second))
+            else (
+              pending := "" ;
+              `Other "Esc")))
       with End_of_file -> `Quit
     in
 
@@ -659,69 +652,79 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
     let pending_update : (Page.state -> Page.state) option ref = ref None in
     let rec loop st key_stack =
       (* Check if a signal (Ctrl+C) requested exit - if so, exit gracefully *)
-      if Atomic.get signal_exit_flag then (
+      if Atomic.get signal_exit_flag then
         (* Don't call cleanup() here - let it run via at_exit for proper cleanup timing *)
-        `SwitchTo "__EXIT__")
+        `SwitchTo "__EXIT__"
       else (
-      (* Refresh refs for pager notifier to see current state/key_stack snapshots. *)
-      current_state_ref := Some st ;
-      current_key_stack_ref := key_stack ;
-      (* Rebuild page keymap frame each iteration so dynamic state (e.g. search mode) can adjust bindings. *)
-      let key_stack =
-        let merged = Page.keymap st in
-        match !page_frame_handle with
-        | Some h ->
-            let ks = Khs.pop key_stack h in
-            let bindings =
-              List.map
-                (fun (k, fn, desc) ->
-                  (k, (fun () -> pending_update := Some fn), desc))
-                merged
-            in
-            let ks', h' = Khs.push ks bindings in
-            page_frame_handle := Some h' ;
-            ks'
-        | None -> key_stack
-      in
-      (* Update footer from top frame after rebuild. *)
-      let () =
-        let pairs = Khs.top_bindings key_stack in
-        let pairs = if pairs = [] then [("q", "Quit")] else pairs in
-        footer_ref := Some (Miaou_widgets_display.Widgets.footer_hints pairs)
-      in
-      match read_key_blocking () with
-      | `Quit ->
-          Printf.eprintf
-            "lambda_term_driver: read_key_blocking -> Quit (ignoring)\n" ;
-          Stdlib.flush stderr ;
-          clear_and_render st key_stack ;
-          loop st key_stack
-      | `Refresh -> (
-          (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
-          if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-          let st' = Page.service_cycle st 0 in
-          match Page.next_page st' with
-          | Some page -> `SwitchTo page
-          | None ->
-              clear_and_render st' key_stack ;
-              loop st' key_stack)
-      | `Enter -> (
-          if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-          if Modal_manager.has_active () then
-            if
-              (* If the narrow modal is active, close it on any key as advertised. *)
-              is_narrow_modal_active ()
-            then (
-              Modal_manager.close_top `Cancel ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
-            else (
-              (* Forward to modal; if it just closed and the page requested navigation, switch now. *)
-              Modal_manager.handle_key "Enter" ;
-              (* If the modal requested the key be consumed, stop here and do not
+        (* Refresh refs for pager notifier to see current state/key_stack snapshots. *)
+        current_state_ref := Some st ;
+        current_key_stack_ref := key_stack ;
+        (* Rebuild page keymap frame each iteration so dynamic state (e.g. search mode) can adjust bindings. *)
+        let key_stack =
+          let merged = Page.keymap st in
+          match !page_frame_handle with
+          | Some h ->
+              let ks = Khs.pop key_stack h in
+              let bindings =
+                List.map
+                  (fun (k, fn, desc) ->
+                    (k, (fun () -> pending_update := Some fn), desc))
+                  merged
+              in
+              let ks', h' = Khs.push ks bindings in
+              page_frame_handle := Some h' ;
+              ks'
+          | None -> key_stack
+        in
+        (* Update footer from top frame after rebuild. *)
+        let () =
+          let pairs = Khs.top_bindings key_stack in
+          let pairs = if pairs = [] then [("q", "Quit")] else pairs in
+          footer_ref := Some (Miaou_widgets_display.Widgets.footer_hints pairs)
+        in
+        match read_key_blocking () with
+        | `Quit ->
+            Printf.eprintf
+              "lambda_term_driver: read_key_blocking -> Quit (ignoring)\n" ;
+            Stdlib.flush stderr ;
+            clear_and_render st key_stack ;
+            loop st key_stack
+        | `Refresh -> (
+            (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
+            if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
+            let st' = Page.service_cycle st 0 in
+            match Page.next_page st' with
+            | Some page -> `SwitchTo page
+            | None ->
+                clear_and_render st' key_stack ;
+                loop st' key_stack)
+        | `Enter -> (
+            if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
+            if Modal_manager.has_active () then
+              if
+                (* If the narrow modal is active, close it on any key as advertised. *)
+                is_narrow_modal_active ()
+              then (
+                Modal_manager.close_top `Cancel ;
+                clear_and_render st key_stack ;
+                loop st key_stack)
+              else (
+                (* Forward to modal; if it just closed and the page requested navigation, switch now. *)
+                Modal_manager.handle_key "Enter" ;
+                (* If the modal requested the key be consumed, stop here and do not
                propagate Enter to the underlying page. *)
-              if Modal_manager.take_consume_next_key () then
-                if not (Modal_manager.has_active ()) then (
+                if Modal_manager.take_consume_next_key () then
+                  if not (Modal_manager.has_active ()) then (
+                    let st' = Page.service_cycle st 0 in
+                    match Page.next_page st' with
+                    | Some page -> `SwitchTo page
+                    | None ->
+                        clear_and_render st' key_stack ;
+                        loop st' key_stack)
+                  else (
+                    clear_and_render st key_stack ;
+                    loop st key_stack)
+                else if not (Modal_manager.has_active ()) then (
                   let st' = Page.service_cycle st 0 in
                   match Page.next_page st' with
                   | Some page -> `SwitchTo page
@@ -730,263 +733,264 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                       loop st' key_stack)
                 else (
                   clear_and_render st key_stack ;
-                  loop st key_stack)
-              else if not (Modal_manager.has_active ()) then (
-                let st' = Page.service_cycle st 0 in
-                match Page.next_page st' with
-                | Some page -> `SwitchTo page
-                | None ->
-                    clear_and_render st' key_stack ;
-                    loop st' key_stack)
-              else (
-                clear_and_render st key_stack ;
-                loop st key_stack))
-          else if Page.has_modal st then (
-            let size = detect_size () in
-            Modal_manager.set_current_size
-              size.LTerm_geom.rows
-              size.LTerm_geom.cols ;
-            let st' = Page.handle_modal_key st "Enter" ~size in
-            match Page.next_page st' with
-            | Some page -> `SwitchTo page
-            | None ->
-                clear_and_render st' key_stack ;
-                loop st' key_stack)
-          else
-            (* Non-modal Enter: perform page.enter, then switch immediately if next_page set. *)
-            match Page.next_page st with
-            | Some page -> `SwitchTo page
-            | None -> (
-                let st' = Page.enter st in
-                match Page.next_page st' with
-                | Some page -> `SwitchTo page
-                | None ->
-                    clear_and_render st' key_stack ;
-                    loop st' key_stack))
-      | (`Up | `Down | `Left | `Right | `NextPage | `PrevPage) as k -> (
-          (* Drain consecutive identical navigation keys to prevent scroll lag.
-             When arrow keys are held down and released, the terminal buffer may
-             contain many identical events. Skip all but the last one. *)
-          let drained_count = drain_consecutive_nav_keys k in
-          (match Logger_capability.get () with
-          | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
-              if drained_count > 0 then
-                logger.logf
-                  Debug
-                  (Printf.sprintf
-                     "NAV_KEY_DRAIN: drained %d consecutive events"
-                     drained_count)
-          | _ -> ()) ;
-          let key =
-            match k with
-            | `Up -> "Up"
-            | `Down -> "Down"
-            | `Left -> "Left"
-            | `Right -> "Right"
-            | `NextPage -> "Tab"
-            | `PrevPage -> "Shift-Tab"
-            | _ -> ""
-          in
-          if key <> "" then (
-            if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-            let st' = handle_key_like st key key_stack in
-            match Page.next_page st' with
-            | Some page -> `SwitchTo page
-            | None ->
-                clear_and_render st' key_stack ;
-                loop st' key_stack)
-          else if Modal_manager.has_active () then
-            if is_narrow_modal_active () then (
-              Modal_manager.close_top `Cancel ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
-            else (
-              Modal_manager.handle_key key ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
-          else if Page.has_modal st then (
-            let size = detect_size () in
-            Modal_manager.set_current_size
-              size.LTerm_geom.rows
-              size.LTerm_geom.cols ;
-            let st' = Page.handle_modal_key st key ~size in
-            clear_and_render st' key_stack ;
-            loop st' key_stack)
-          else
-            (* First attempt stack-based dispatch. *)
-            let consumed, key_stack' = Khs.dispatch key_stack key in
-            if consumed then (
-              let st' =
-                match !pending_update with
-                | Some f ->
-                    let s' = f st in
-                    pending_update := None ;
-                    s'
-                | None -> st
-              in
+                  loop st key_stack))
+            else if Page.has_modal st then (
+              let size = detect_size () in
+              Modal_manager.set_current_size
+                size.LTerm_geom.rows
+                size.LTerm_geom.cols ;
+              let st' = Page.handle_modal_key st "Enter" ~size in
               match Page.next_page st' with
               | Some page -> `SwitchTo page
               | None ->
                   clear_and_render st' key_stack ;
-                  loop st' key_stack')
+                  loop st' key_stack)
             else
+              (* Non-modal Enter: perform page.enter, then switch immediately if next_page set. *)
+              match Page.next_page st with
+              | Some page -> `SwitchTo page
+              | None -> (
+                  let st' = Page.enter st in
+                  match Page.next_page st' with
+                  | Some page -> `SwitchTo page
+                  | None ->
+                      clear_and_render st' key_stack ;
+                      loop st' key_stack))
+        | (`Up | `Down | `Left | `Right | `NextPage | `PrevPage) as k -> (
+            (* Drain consecutive identical navigation keys to prevent scroll lag.
+             When arrow keys are held down and released, the terminal buffer may
+             contain many identical events. Skip all but the last one. *)
+            let drained_count = drain_consecutive_nav_keys k in
+            (match Logger_capability.get () with
+            | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
+                if drained_count > 0 then
+                  logger.logf
+                    Debug
+                    (Printf.sprintf
+                       "NAV_KEY_DRAIN: drained %d consecutive events"
+                       drained_count)
+            | _ -> ()) ;
+            let key =
+              match k with
+              | `Up -> "Up"
+              | `Down -> "Down"
+              | `Left -> "Left"
+              | `Right -> "Right"
+              | `NextPage -> "Tab"
+              | `PrevPage -> "Shift-Tab"
+              | _ -> ""
+            in
+            if key <> "" then (
+              if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
               let st' = handle_key_like st key key_stack in
               match Page.next_page st' with
               | Some page -> `SwitchTo page
               | None ->
                   clear_and_render st' key_stack ;
-                  loop st' key_stack')
-      | `Other key ->
-          if key = "?" then (
-            (* Build help text with optional contextual hint (markdown),
+                  loop st' key_stack)
+            else if Modal_manager.has_active () then
+              if is_narrow_modal_active () then (
+                Modal_manager.close_top `Cancel ;
+                clear_and_render st key_stack ;
+                loop st key_stack)
+              else (
+                Modal_manager.handle_key key ;
+                clear_and_render st key_stack ;
+                loop st key_stack)
+            else if Page.has_modal st then (
+              let size = detect_size () in
+              Modal_manager.set_current_size
+                size.LTerm_geom.rows
+                size.LTerm_geom.cols ;
+              let st' = Page.handle_modal_key st key ~size in
+              clear_and_render st' key_stack ;
+              loop st' key_stack)
+            else
+              (* First attempt stack-based dispatch. *)
+              let consumed, key_stack' = Khs.dispatch key_stack key in
+              if consumed then (
+                let st' =
+                  match !pending_update with
+                  | Some f ->
+                      let s' = f st in
+                      pending_update := None ;
+                      s'
+                  | None -> st
+                in
+                match Page.next_page st' with
+                | Some page -> `SwitchTo page
+                | None ->
+                    clear_and_render st' key_stack ;
+                    loop st' key_stack')
+              else
+                let st' = handle_key_like st key key_stack in
+                match Page.next_page st' with
+                | Some page -> `SwitchTo page
+                | None ->
+                    clear_and_render st' key_stack ;
+                    loop st' key_stack')
+        | `Other key ->
+            if key = "?" then (
+              (* Build help text with optional contextual hint (markdown),
           shown above the key bindings. Title is "hints" with a subtitle
           for the bindings. *)
-            let size = detect_size () in
-            let cols = size.LTerm_geom.cols in
-            (* Use a conservative content width and align modal max width to it to
+              let size = detect_size () in
+              let cols = size.LTerm_geom.cols in
+              (* Use a conservative content width and align modal max width to it to
           prevent container re-wrapping (breaks words). *)
-            let content_width =
-              let cw = max 16 (cols - 20) in
-              min cw 72
-            in
-            let all = Khs.all_bindings key_stack in
-            let dedup = Hashtbl.create 97 in
-            List.iter
-              (fun (k, h) ->
-                if not (Hashtbl.mem dedup k) then Hashtbl.add dedup k h)
-              all ;
-            let entries =
-              Hashtbl.fold (fun k h acc -> (k, h) :: acc) dedup []
-            in
-            let entries =
-              List.sort (fun (a, _) (b, _) -> String.compare a b) entries
-            in
-            let key_lines =
-              List.map (fun (k, h) -> Printf.sprintf "%-12s %s" k h) entries
-            in
-            let contextual = Help_hint.get_active () in
-            let hint_block =
-              match contextual with
-              | None -> None
-              | Some {short; long} ->
-                  let pick =
-                    match (long, short) with
-                    | Some l, Some s -> if cols >= 100 then l else s
-                    | Some l, None -> l
-                    | None, Some s -> s
-                    | None, None -> ""
-                  in
-                  let pick = String.trim pick in
-                  if pick = "" then None
-                  else
-                    let md =
-                      Miaou_internals.Modal_utils.markdown_to_ansi pick
+              let content_width =
+                let cw = max 16 (cols - 20) in
+                min cw 72
+              in
+              let all = Khs.all_bindings key_stack in
+              let dedup = Hashtbl.create 97 in
+              List.iter
+                (fun (k, h) ->
+                  if not (Hashtbl.mem dedup k) then Hashtbl.add dedup k h)
+                all ;
+              let entries =
+                Hashtbl.fold (fun k h acc -> (k, h) :: acc) dedup []
+              in
+              let entries =
+                List.sort (fun (a, _) (b, _) -> String.compare a b) entries
+              in
+              let key_lines =
+                List.map (fun (k, h) -> Printf.sprintf "%-12s %s" k h) entries
+              in
+              let contextual = Help_hint.get_active () in
+              let hint_block =
+                match contextual with
+                | None -> None
+                | Some {short; long} ->
+                    let pick =
+                      match (long, short) with
+                      | Some l, Some s -> if cols >= 100 then l else s
+                      | Some l, None -> l
+                      | None, Some s -> s
+                      | None, None -> ""
                     in
-                    let wrapped =
-                      Miaou_internals.Modal_utils.wrap_content_to_width_words
-                        md
-                        content_width
+                    let pick = String.trim pick in
+                    if pick = "" then None
+                    else
+                      let md =
+                        Miaou_internals.Modal_utils.markdown_to_ansi pick
+                      in
+                      let wrapped =
+                        Miaou_internals.Modal_utils.wrap_content_to_width_words
+                          md
+                          content_width
+                      in
+                      Some wrapped
+              in
+              let body =
+                match hint_block with
+                | None ->
+                    let header =
+                      Miaou_widgets_display.Widgets.bold
+                        (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
                     in
-                    Some wrapped
-            in
-            let body =
-              match hint_block with
-              | None ->
-                  let header =
-                    Miaou_widgets_display.Widgets.bold
-                      (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
-                  in
-                  let keys = Helpers.concat_lines key_lines in
-                  let buf =
-                    Buffer.create (String.length header + String.length keys + 2)
-                  in
-                  Buffer.add_string buf header ;
-                  Buffer.add_char buf '\n' ;
-                  Buffer.add_string buf keys ;
-                  Buffer.contents buf
-              | Some hb ->
-                  let sep =
-                    Miaou_widgets_display.Widgets.fg
-                      238
-                      (Miaou_widgets_display.Widgets.hr
-                         ~width:(min content_width (cols - 6))
-                         ())
-                  in
-                  let header =
-                    Miaou_widgets_display.Widgets.bold
-                      (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
-                  in
-                  let keys = Helpers.concat_lines key_lines in
-                  let buf =
-                    Buffer.create
-                      (String.length hb + String.length sep + String.length header
-                     + String.length keys + 8)
-                  in
-                  Buffer.add_string buf hb ;
-                  Buffer.add_char buf '\n' ;
-                  Buffer.add_string buf sep ;
-                  Buffer.add_char buf '\n' ;
-                  Buffer.add_string buf header ;
-                  Buffer.add_char buf '\n' ;
-                  Buffer.add_string buf keys ;
-                  Buffer.contents buf
-            in
-            let module Help_modal = struct
-              module Page : PAGE_SIG = struct
-                type state = unit
+                    let keys = Helpers.concat_lines key_lines in
+                    let buf =
+                      Buffer.create
+                        (String.length header + String.length keys + 2)
+                    in
+                    Buffer.add_string buf header ;
+                    Buffer.add_char buf '\n' ;
+                    Buffer.add_string buf keys ;
+                    Buffer.contents buf
+                | Some hb ->
+                    let sep =
+                      Miaou_widgets_display.Widgets.fg
+                        238
+                        (Miaou_widgets_display.Widgets.hr
+                           ~width:(min content_width (cols - 6))
+                           ())
+                    in
+                    let header =
+                      Miaou_widgets_display.Widgets.bold
+                        (Miaou_widgets_display.Widgets.fg 81 "Key Bindings")
+                    in
+                    let keys = Helpers.concat_lines key_lines in
+                    let buf =
+                      Buffer.create
+                        (String.length hb + String.length sep
+                       + String.length header + String.length keys + 8)
+                    in
+                    Buffer.add_string buf hb ;
+                    Buffer.add_char buf '\n' ;
+                    Buffer.add_string buf sep ;
+                    Buffer.add_char buf '\n' ;
+                    Buffer.add_string buf header ;
+                    Buffer.add_char buf '\n' ;
+                    Buffer.add_string buf keys ;
+                    Buffer.contents buf
+              in
+              let module Help_modal = struct
+                module Page : PAGE_SIG = struct
+                  type state = unit
 
-                type msg = unit
+                  type msg = unit
 
-                let handle_modal_key s _ ~size:_ = s
+                  let handle_modal_key s _ ~size:_ = s
 
-                let handle_key s _ ~size:_ = s
+                  let handle_key s _ ~size:_ = s
 
-                let update s _ = s
+                  let update s _ = s
 
-                let move s _ = s
+                  let move s _ = s
 
-                let refresh s = s
+                  let refresh s = s
 
-                let enter s = s
+                  let enter s = s
 
-                let service_select s _ = s
+                  let service_select s _ = s
 
-                let service_cycle s _ = s
+                  let service_cycle s _ = s
 
-                let back s = s
+                  let back s = s
 
-                let next_page _ = None
+                  let next_page _ = None
 
-                let has_modal _ = false
+                  let has_modal _ = false
 
-                let init () = ()
+                  let init () = ()
 
-                let view _ ~focus:_ ~size:_ = body
+                  let view _ ~focus:_ ~size:_ = body
 
-                let keymap (_ : state) = []
+                  let keymap (_ : state) = []
 
-                let handled_keys () = []
-              end
-            end in
-            Modal_manager.push_default
-              (module Help_modal.Page)
-              ~init:(Help_modal.Page.init ())
-              ~ui:
-                {
-                  title = "hints";
-                  left = None;
-                  max_width = Some (content_width + 4);
-                  dim_background = true;
-                }
-              ~on_close:(fun (_ : Help_modal.Page.state) _ -> ()) ;
-            clear_and_render st key_stack ;
-            loop st key_stack)
-          else if key = "Esc" || key = "Escape" then
-            if Modal_manager.has_active () || Page.has_modal st then (
-              (* Close modal if any; if page requested navigation, switch now. *)
-              Modal_manager.handle_key "Esc" ;
-              if Modal_manager.take_consume_next_key () then
-                if not (Modal_manager.has_active ()) then (
+                  let handled_keys () = []
+                end
+              end in
+              Modal_manager.push_default
+                (module Help_modal.Page)
+                ~init:(Help_modal.Page.init ())
+                ~ui:
+                  {
+                    title = "hints";
+                    left = None;
+                    max_width = Some (content_width + 4);
+                    dim_background = true;
+                  }
+                ~on_close:(fun (_ : Help_modal.Page.state) _ -> ()) ;
+              clear_and_render st key_stack ;
+              loop st key_stack)
+            else if key = "Esc" || key = "Escape" then
+              if Modal_manager.has_active () || Page.has_modal st then (
+                (* Close modal if any; if page requested navigation, switch now. *)
+                Modal_manager.handle_key "Esc" ;
+                if Modal_manager.take_consume_next_key () then
+                  if not (Modal_manager.has_active ()) then (
+                    let st' = Page.service_cycle st 0 in
+                    match Page.next_page st' with
+                    | Some page -> `SwitchTo page
+                    | None ->
+                        clear_and_render st' key_stack ;
+                        loop st' key_stack)
+                  else (
+                    clear_and_render st key_stack ;
+                    loop st key_stack)
+                else if not (Modal_manager.has_active ()) then (
                   let st' = Page.service_cycle st 0 in
                   match Page.next_page st' with
                   | Some page -> `SwitchTo page
@@ -995,65 +999,55 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                       loop st' key_stack)
                 else (
                   clear_and_render st key_stack ;
-                  loop st key_stack)
-              else if not (Modal_manager.has_active ()) then (
-                let st' = Page.service_cycle st 0 in
+                  loop st key_stack))
+              else
+                (* Let the current page override Esc/Escape. If it sets next_page,
+                 navigate there; else fall back to default back behavior. *)
+                let size = detect_size () in
+                let st' = Page.handle_key st key ~size in
                 match Page.next_page st' with
                 | Some page -> `SwitchTo page
-                | None ->
-                    clear_and_render st' key_stack ;
-                    loop st' key_stack)
-              else (
-                clear_and_render st key_stack ;
-                loop st key_stack))
-            else
-              (* Let the current page override Esc/Escape. If it sets next_page,
-                 navigate there; else fall back to default back behavior. *)
-              let size = detect_size () in
-              let st' = Page.handle_key st key ~size in
-              match Page.next_page st' with
-              | Some page -> `SwitchTo page
-              | None -> `SwitchTo "__BACK__"
-          else if
-            (* If a modal is active, route all keys to the modal first and do not
+                | None -> `SwitchTo "__BACK__"
+            else if
+              (* If a modal is active, route all keys to the modal first and do not
                propagate them to the underlying page or key handler stack. This
                prevents page shortcuts (e.g. 'd' for delete) from triggering while
                typing in modal inputs. *)
-            Modal_manager.has_active ()
-          then
-            if is_narrow_modal_active () then (
-              Modal_manager.close_top `Cancel ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
+              Modal_manager.has_active ()
+            then
+              if is_narrow_modal_active () then (
+                Modal_manager.close_top `Cancel ;
+                clear_and_render st key_stack ;
+                loop st key_stack)
+              else (
+                Modal_manager.handle_key key ;
+                clear_and_render st key_stack ;
+                loop st key_stack)
             else (
-              Modal_manager.handle_key key ;
-              clear_and_render st key_stack ;
-              loop st key_stack)
-          else (
-            if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-            (* Stack dispatch first. *)
-            let consumed, key_stack' = Khs.dispatch key_stack key in
-            if consumed then (
-              let st' =
-                match !pending_update with
-                | Some f ->
-                    let s' = f st in
-                    pending_update := None ;
-                    s'
-                | None -> st
-              in
-              match Page.next_page st' with
-              | Some page -> `SwitchTo page
-              | None ->
-                  clear_and_render st' key_stack ;
-                  loop st' key_stack')
-            else
-              let st' = handle_key_like st key key_stack in
-              match Page.next_page st' with
-              | Some page -> `SwitchTo page
-              | None ->
-                  clear_and_render st' key_stack ;
-                  loop st' key_stack'))
+              if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
+              (* Stack dispatch first. *)
+              let consumed, key_stack' = Khs.dispatch key_stack key in
+              if consumed then (
+                let st' =
+                  match !pending_update with
+                  | Some f ->
+                      let s' = f st in
+                      pending_update := None ;
+                      s'
+                  | None -> st
+                in
+                match Page.next_page st' with
+                | Some page -> `SwitchTo page
+                | None ->
+                    clear_and_render st' key_stack ;
+                    loop st' key_stack')
+              else
+                let st' = handle_key_like st key key_stack in
+                match Page.next_page st' with
+                | Some page -> `SwitchTo page
+                | None ->
+                    clear_and_render st' key_stack ;
+                    loop st' key_stack'))
     in
 
     enter_raw () ;
@@ -1091,11 +1085,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
       key_stack
     in
     current_key_stack_ref := init_stack ;
-    (* Register pager notify callback so appenders can request renders. *)
-    (try
-       Miaou_widgets_display.Pager_widget.set_notify_render
-         (Some notify_render_from_pager_flag)
-     with _ -> ()) ;
+    (* Pager notification callback is now passed to Pager_widget.open_lines per-instance.
+       Applications using pager widgets should pass notify_render_from_pager_flag when creating pagers. *)
     (* Footer cache updated each loop; initialize ref *)
     footer_ref := None ;
     clear_and_render st0 init_stack ;
