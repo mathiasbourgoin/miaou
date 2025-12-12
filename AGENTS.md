@@ -35,8 +35,16 @@ You maintain **Miaou**, a TUI toolkit and drivers used by Octez tools. Keep scop
 - Refactor list-heavy pages to the standardized `Table_widget` once widgets are in place; keep key hints consistent.
 - Keep drivers thin and testable; headless/test harness support is desirable for regression tests.
 
+## Module catalog (gardening)
+- Purpose: single inventory per milestone to track gardening coverage and surface gaps.
+- Location: `docs/gardening/<milestone>_module_catalog.md` (create if absent).
+- Contents: list modules in scope with signature summaries (key types/functions exposed) and a 1–2 line description per module; update whenever gardening touches a module.
+- Usage: use the catalog to pick modules for cleanup/deduplication/refactors (focus on 2–3 modules or one subsystem), looking for redundant helpers, missing `.mli` coverage, or consolidation opportunities.
+- Discipline: gardening work lands as one commit `chore(gardening): <scope>` and ensures the catalog reflects the touched modules.
+
 ## Daily discipline
 - Before coding: update TODO, restate goal, ensure clean tree.
 - During coding: add only succinct comments where logic isn’t obvious; design types first.
 - After coding: format, test, coverage, docs/demos, update TODO, then commit with a clear message.
+- End-of-task gardening checkpoint (ask the user once, after they validate the task): confirm with the user whether to trigger a gardening step; ensure the milestone has an active small-scope gardening task (2–3 modules or a subsystem), the module catalog at `docs/gardening/<milestone>_module_catalog.md` is current, follow-ups are noted, and any gardening change lands as a single `chore(gardening): <scope>` commit.
 - Never revert user changes or run destructive commands without explicit instruction.

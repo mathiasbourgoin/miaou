@@ -44,6 +44,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optimized card_sidebar: 15.1s → 1.0s (15x faster)
 - All other widgets show 20-40% performance improvements
 
+### Breaking Changes (2025-12-12)
+
+#### ⚠️ Pager Widget: Notification Callback Now Per-Instance
+
+**Impact:** Code using `Pager_widget.set_notify_render` must be updated.
+
+**What changed:**
+```ocaml
+(* OLD - Global callback (removed) *)
+Pager_widget.set_notify_render (Some callback);
+let pager = Pager_widget.open_lines ~title:"Log" lines in
+
+(* NEW - Per-instance callback *)
+let pager = Pager_widget.open_lines ~title:"Log" ~notify_render:callback lines in
+```
+
+**Migration guide:**
+
+1. Remove calls to `set_notify_render`
+2. Pass `~notify_render` parameter to `open_lines`/`open_text`
+
+**Before:**
+```ocaml
+let pager = Pager_widget.open_lines ~title:"My Pager" [] in
+Pager_widget.set_notify_render (Some render_callback);
+```
+
+**After:**
+```ocaml
+let pager = Pager_widget.open_lines ~title:"My Pager"
+              ~notify_render:render_callback [] in
+```
+
+**Why this change?**
+- Eliminates global mutable state
+- Enables multiple independent pagers with different callbacks
+- Makes callback lifetime explicit (tied to pager instance)
+- Better composability and testability
+
+**Type signature changes:**
+- `open_lines : ?title:string -> ?notify_render:(unit -> unit) -> string list -> t`
+- `open_text : ?title:string -> ?notify_render:(unit -> unit) -> string -> t`
+- `set_notify_render` function removed
+
+**Compiler error you'll see:**
+```
+Error: Unbound value Pager_widget.set_notify_render
+```
+
 ### Breaking Changes (2025-12-11)
 
 #### ⚠️ PAGE_SIG Requires `handled_keys` Function
