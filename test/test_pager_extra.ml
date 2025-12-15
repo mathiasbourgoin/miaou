@@ -31,10 +31,11 @@ let test_handle_keys () =
   let p, _ = Pager.handle_key p ~key:"Enter" in
   let p, _ = Pager.handle_key p ~key:"n" in
   let p, _ = Pager.handle_key p ~key:"p" in
-  let p, _ = Pager.handle_key p ~key:"f" in
+  let p, consumed_follow = Pager.handle_key p ~key:"f" in
   let p, consumed = Pager.handle_key p ~key:"Esc" in
   let rendered = Pager.render ~win:3 p ~focus:false in
-  check bool "follow toggled" true p.follow ;
+  check bool "follow unchanged when not streaming" false consumed_follow ;
+  check bool "follow remains off when not streaming" false p.follow ;
   check bool "escape consumed" false consumed ;
   check bool "search applied" true (String.contains rendered 'f')
 
@@ -111,6 +112,7 @@ let test_follow_mode_behavior () =
       ~title:"follow"
       ["line1"; "line2"; "line3"; "line4"; "line5"]
   in
+  Pager.start_streaming p ;
   (* Enable follow mode *)
   let p, _ = Pager.handle_key p ~win ~key:"f" in
   check bool "follow enabled" true p.follow ;
@@ -132,6 +134,7 @@ let test_follow_mode_behavior () =
 let test_follow_tracks_appends () =
   let win = 3 in
   let p = Pager.open_lines ~title:"follow" ["l1"; "l2"] in
+  Pager.start_streaming p ;
   let p, _ = Pager.handle_key p ~win ~key:"f" in
   check bool "follow enabled" true p.follow ;
   Pager.append_lines_batched p ["l3"] ;

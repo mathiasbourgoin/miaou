@@ -211,6 +211,7 @@ let stop_streaming t =
   (* Ensure any buffered content is flushed when streaming stops so final view is complete *)
   flush_pending_if_needed ~force:true t ;
   t.streaming <- false ;
+  t.follow <- false ;
   t.spinner_pos <- 0
 
 (* Simple incremental JSON pretty-printer (streaming-friendly).
@@ -560,13 +561,13 @@ let render ?cols ?(wrap = true) ~win (t : t) ~focus : string =
       match t.input_mode with
       | `Search_edit -> [("Enter", "search"); ("Esc", "cancel")]
       | _ ->
-          [
-            ("Up/Down", "scroll");
-            ("PgUp/PgDn", "page");
-            ("/", "search");
-            ("n/p", "next/prev");
-            ("f", if t.follow then "follow off" else "follow on");
-          ]
+          let base =
+            [("Up/Down", "scroll"); ("PgUp/PgDn", "page"); ("/", "search")]
+          in
+          let base = base @ [("n/p", "next/prev")] in
+          if t.streaming then
+            base @ [("f", if t.follow then "follow off" else "follow on")]
+          else base
     in
     Widgets.footer_hints_wrapped_capped
       ~cols
@@ -673,7 +674,7 @@ let handle_nav_key t ~key ~win ~total ~page =
       t.offset <- max_offset ;
       t.follow <- t.streaming ;
       Some (t, true)
-  | "f" | "F" ->
+  | ("f" | "F") when t.streaming ->
       t.follow <- not t.follow ;
       if t.follow then t.offset <- max_offset ;
       Some (t, true)
