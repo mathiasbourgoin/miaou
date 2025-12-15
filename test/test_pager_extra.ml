@@ -143,6 +143,22 @@ let test_follow_tracks_appends () =
   let rendered = Pager.render ~win p ~focus:true in
   check bool "latest line visible" true (String.contains rendered '3')
 
+let test_static_pager_hides_follow () =
+  let p =
+    Pager.open_lines ~title:"static" ["line1"; "line2"; "line3"; "line4"]
+  in
+  let rendered = Pager.render ~win:4 p ~focus:true in
+  let has_follow =
+    try
+      ignore (Str.search_forward (Str.regexp_string "follow") rendered 0) ;
+      true
+    with Not_found -> false
+  in
+  check bool "follow hint absent for static pager" false has_follow ;
+  let p', consumed = Pager.handle_key p ~key:"f" in
+  check bool "follow key ignored for static pager" false consumed ;
+  check bool "follow flag remains off" false p'.Pager.follow
+
 let suite =
   [
     test_case "json streamer feed" `Quick test_json_streamer;
@@ -153,6 +169,7 @@ let suite =
     test_case "search execute" `Quick test_search_execute;
     test_case "follow mode behavior" `Quick test_follow_mode_behavior;
     test_case "follow tracks appends" `Quick test_follow_tracks_appends;
+    test_case "static pager hides follow" `Quick test_static_pager_hides_follow;
   ]
 
 let () = run "pager_extra" [("pager_extra", suite)]
