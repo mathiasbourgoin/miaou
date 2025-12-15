@@ -46,6 +46,14 @@ let test_autocomplete_and_history () =
   check bool "rendered body" true (String.length rendered > 0) ;
   ignore w
 
+let test_enter_enters_directory () =
+  Miaou_interfaces.System.set (make_stub ~writable:true) ;
+  let w = FB.open_centered ~path:"/root" ~dirs_only:false () in
+  (* Cursor defaults to first entry, which is a directory in the stub. *)
+  let w' = FB.handle_key w ~key:"Enter" in
+  check string "navigated into dir" "/root/dir1" w'.FB.current_path ;
+  check int "cursor reset" 0 w'.FB.cursor
+
 let test_not_writable_error () =
   Miaou_interfaces.System.set (make_stub ~writable:false) ;
   let w = FB.open_centered ~path:"/tmp" ~dirs_only:false () in
@@ -71,6 +79,7 @@ let () =
       ( "file_browser_extra",
         [
           test_case "autocomplete/history" `Quick test_autocomplete_and_history;
+          test_case "enter navigates dir" `Quick test_enter_enters_directory;
           test_case "not writable" `Quick test_not_writable_error;
           test_case "read only mode" `Quick test_read_only_mode;
         ] );

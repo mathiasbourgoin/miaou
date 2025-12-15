@@ -193,6 +193,13 @@ let handle_key w ~key =
               List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Up;
           }
       | "Esc" -> {w with cancelled = true}
+      | "Enter" -> (
+          (* Navigate into selected directory *)
+          match List.nth_opt entries w.cursor with
+          | Some entry when entry.is_dir ->
+              let new_path = Filename.concat w.current_path entry.name in
+              {w with current_path = new_path; cursor = 0}
+          | _ -> w)
       | "Left" | "Backspace" ->
           let parent = Filename.dirname w.current_path in
           {w with current_path = parent; cursor = 0}

@@ -3620,19 +3620,31 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let view s ~focus:_ ~size =
     let module W = Miaou_widgets_display.Widgets in
-    let header = W.titleize "MIAOU demo launcher" in
+    (* The terminal renderer treats the first line as the page title and wraps
+       the rest in a frame with its own title/separator/footer. Keep this first
+       line plain (no embedded newlines), and size our body so the frame does
+       not exceed [size.rows] (otherwise the renderer trims lines in the middle,
+       desynchronizing cursor and viewport). *)
+    let title = "MIAOU demo launcher" in
     let instructions =
       W.dim "Use ↑/↓ (or j/k) to move, Enter to launch a demo, q or Esc to exit"
     in
-    let max_lines =
-      (* leave room for header + instructions + blank line *)
-      max 5 (min (size.LTerm_geom.rows - 3) 12)
+    let header_overhead = if size.LTerm_geom.cols < 80 then 1 else 0 in
+    let frame_overhead =
+      (* title + separator + footer hints (driver caps to 3 lines) *)
+      2 + 3 + header_overhead
     in
+    let body_rows_available = max 0 (size.LTerm_geom.rows - frame_overhead) in
+    let items_capacity =
+      (* instructions + blank line *)
+      max 1 (body_rows_available - 2)
+    in
+    let max_lines = min 12 items_capacity in
     let start =
-      let half = max_lines / 2 in
-      let lo = max 0 (s.cursor - half) in
-      let hi = List.length demos - max_lines in
-      if lo > hi then max 0 hi else lo
+      let total = List.length demos in
+      let max_start = max 0 (total - max_lines) in
+      let desired = s.cursor - max_lines + 1 in
+      max 0 (min desired max_start)
     in
     let slice =
       List.filteri (fun i _ -> i >= start && i < start + max_lines) demos
@@ -3644,7 +3656,7 @@ module rec Page : Miaou.Core.Tui_page.PAGE_SIG = struct
           if i = s.cursor then W.green ("❯ " ^ d.title) else "  " ^ d.title)
         slice
     in
-    String.concat "\n" (header :: instructions :: "" :: items)
+    String.concat "\n" (title :: instructions :: "" :: items)
 
   let handle_key s key_str ~size:_ =
     match Miaou.Core.Keys.of_string key_str with
