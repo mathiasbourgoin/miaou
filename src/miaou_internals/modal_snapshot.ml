@@ -5,7 +5,8 @@
 (*                                                                           *)
 (*****************************************************************************)
 let provider :
-    (unit -> (string * int option * int option * bool * (unit -> string)) list)
+    (unit ->
+    (string * int option * int option * bool * (LTerm_geom.size -> string)) list)
     option
     ref =
   ref None

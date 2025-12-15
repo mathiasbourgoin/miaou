@@ -6,6 +6,23 @@
 (*****************************************************************************)
 val wrap_content_to_width : string -> int -> string
 
+(** Modal geometry computed from terminal dimensions and UI hints. *)
+type modal_geometry = {
+  left : int;
+  max_width : int;
+  content_width : int;
+  max_height : int;
+  max_content_h : int;
+}
+
+(** Compute the geometry used by the modal renderer for a given terminal size. *)
+val compute_modal_geometry :
+  cols:int ->
+  rows:int ->
+  left_opt:int option ->
+  max_width_opt:int option ->
+  modal_geometry
+
 (** Render a minimal subset of Markdown to ANSI-styled text suitable for the TUI.
 	Supported features:
 	- Headers: #, ##, ###

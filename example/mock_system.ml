@@ -53,7 +53,11 @@ let run_command ~argv:_ ~cwd:_ :
 
 let get_current_user_info () = Ok ("user", "/home/user")
 
-let get_disk_usage ~path:_ = Ok 0L
+let get_disk_usage ~path =
+  try
+    let st = Unix.stat path in
+    Ok (Int64.of_int st.Unix.st_size)
+  with _ -> Ok 0L
 
 let list_dir path =
   try

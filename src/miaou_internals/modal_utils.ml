@@ -8,6 +8,35 @@
 
 module Helpers = Miaou_helpers.Helpers
 
+type modal_geometry = {
+  left : int;
+  max_width : int;
+  content_width : int;
+  max_height : int;
+  max_content_h : int;
+}
+
+let compute_modal_geometry ~cols ~rows ~left_opt ~max_width_opt =
+  let cols = max 0 cols in
+  let rows = max 0 rows in
+  let left =
+    match left_opt with
+    | Some v -> max 0 (min v (max 0 (cols - 10)))
+    | None ->
+        max 0 ((cols - match max_width_opt with Some w -> w | None -> 76) / 2)
+  in
+  let effective_requested =
+    match max_width_opt with Some v -> v | None -> 76
+  in
+  let max_width = max 10 (min effective_requested (max 10 (cols - left - 4))) in
+  let content_width =
+    (* Match Modal_renderer logic: reserve 2 for borders and 2 for padding. *)
+    max 0 (max_width - 4)
+  in
+  let max_height = min rows (max 14 (rows - 4)) in
+  let max_content_h = max 0 (max_height - 2) in
+  {left; max_width; content_width; max_height; max_content_h}
+
 let tokenize_ansi_utf8 (s : string) : string list =
   let len = String.length s in
   let rec loop i acc =

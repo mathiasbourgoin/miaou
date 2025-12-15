@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pager UX fixes: follow hint only shown when streaming, static pager test added, markdown renderer hides inline backticks and underlines H1 titles.
 - Service lifecycle: removing instance files no longer requires a role value.
 - File browser navigation: canonicalize paths so parent navigation works from relative paths, scroll the viewport earlier, and tighten Enter navigation checks; demo uses the real filesystem so Enter now changes directories.
+- Modal sizing: modal pages now receive the actual modal content geometry (rows/cols) so list widgets don’t scroll into invisible items due to modal height clipping.
 
 ### Added (2025-12-11)
 

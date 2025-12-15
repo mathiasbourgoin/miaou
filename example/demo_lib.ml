@@ -137,8 +137,8 @@ module File_browser_modal : Miaou.Core.Tui_page.PAGE_SIG = struct
 
   let update s _ = s
 
-  let view s ~focus ~size:_ =
-    Miaou_widgets_layout.File_browser_widget.render s ~focus
+  let view s ~focus ~size =
+    Miaou_widgets_layout.File_browser_widget.render_with_size s ~focus ~size
 
   let handle_key s key_str ~size:_ =
     Miaou_widgets_layout.File_browser_widget.handle_key s ~key:key_str

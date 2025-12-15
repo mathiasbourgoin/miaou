@@ -102,7 +102,17 @@ let handle_key key =
   | [] -> ()
   | Frame ({commit_on; cancel_on; on_close; _} as r) :: _ ->
       let module P = (val r.p : Tui_page.PAGE_SIG with type state = _) in
-      let size = !current_size in
+      let term_size = !current_size in
+      let geom =
+        Miaou_internals.Modal_utils.compute_modal_geometry
+          ~cols:term_size.LTerm_geom.cols
+          ~rows:term_size.LTerm_geom.rows
+          ~left_opt:r.ui.left
+          ~max_width_opt:r.ui.max_width
+      in
+      let size =
+        {LTerm_geom.rows = geom.max_content_h; cols = geom.content_width}
+      in
       (* Let the page handle the key first so it can update its state based on
          the key (e.g. move cursor). After the page updated the state we
          evaluate commit/cancel semantics so commits reflect the new state. *)
@@ -135,12 +145,8 @@ let () =
         let left = r.ui.left in
         let max_width = r.ui.max_width in
         let dim = r.ui.dim_background in
-        let view_thunk () =
+        let view_thunk (size : LTerm_geom.size) =
           let module P = (val r.p : Tui_page.PAGE_SIG with type state = _) in
-          (* Use the driver-provided current_size when rendering modal snapshots.
-           The driver updates this value before rendering so modal pages can
-           compute layouts that match the terminal geometry. *)
-          let size = !current_size in
           P.view r.st ~focus:true ~size
         in
         (title, left, max_width, dim, view_thunk))

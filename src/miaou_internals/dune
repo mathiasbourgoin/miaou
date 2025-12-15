@@ -11,6 +11,6 @@
   focus_chain)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou.widgets.layout miaou.widgets.display))
+ (libraries miaou.widgets.layout miaou.widgets.display lambda-term))
 
 ;; Key handler stack module added for hierarchical key exclusivity

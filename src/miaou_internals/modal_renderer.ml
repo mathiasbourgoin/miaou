@@ -83,14 +83,10 @@ let render_overlay ~(cols : int option) ~base ?rows () =
     let rendered =
       List.fold_left
         (fun acc (title, left_opt, max_width_opt, dim_background, view_thunk) ->
-          let raw_content = view_thunk () in
           (try
-             let preview =
-               trim_preview raw_content ~max_lines:8 ~max_chars:400
-             in
              append_log
                (Printf.sprintf
-                  "RENDERER_FRAME: title='%s' left=%s max_w=%s dim_bg=%b\n%s"
+                  "RENDERER_FRAME: title='%s' left=%s max_w=%s dim_bg=%b"
                   title
                   (match left_opt with
                   | Some l -> string_of_int l
@@ -98,8 +94,7 @@ let render_overlay ~(cols : int option) ~base ?rows () =
                   (match max_width_opt with
                   | Some w -> string_of_int w
                   | None -> "-")
-                  dim_background
-                  preview)
+                  dim_background)
            with _ -> ()) ;
           (* Determine effective left and max_width based on available cols. *)
           let cols_val = match cols with Some c -> c | None -> 80 in
@@ -108,40 +103,40 @@ let render_overlay ~(cols : int option) ~base ?rows () =
             | Some r -> r
             | None -> List.length (String.split_on_char '\n' base)
           in
-          let left =
-            match left_opt with
-            | Some v -> max 0 (min v (cols_val - 10))
-            | None ->
-                max
-                  0
-                  ((cols_val
-                   - match max_width_opt with Some w -> w | None -> 76)
-                  / 2)
+          let geom =
+            Modal_utils.compute_modal_geometry
+              ~cols:cols_val
+              ~rows:rows_val
+              ~left_opt
+              ~max_width_opt
           in
-          (* If caller did not specify max_width (None), use a sane default width (76). *)
-          let effective_requested =
-            match max_width_opt with Some v -> v | None -> 76
+          let raw_content =
+            view_thunk
+              {LTerm_geom.rows = geom.max_content_h; cols = geom.content_width}
           in
-          let max_width =
-            let mw = effective_requested in
-            max 10 (min mw (max 10 (cols_val - left - 4)))
-          in
-          (* Compute content width approximation matching Widgets.center_modal logic: reserve 2 for borders and 2 for padding. *)
-          let content_width = max 0 (max_width - 4) in
-          let content = wrap_content_to_width raw_content content_width in
+          (try
+             let preview =
+               trim_preview raw_content ~max_lines:8 ~max_chars:400
+             in
+             append_log
+               (Printf.sprintf
+                  "RENDERER_FRAME_PREVIEW: title='%s'\n%s"
+                  title
+                  preview)
+           with _ -> ()) ;
+          let content = wrap_content_to_width raw_content geom.content_width in
           let dim_background = dim_background || true in
           (* Derive an adaptive max_height from the current base output lines.
          Keep a higher floor so content like Select lists isn't clipped by header lines. *)
-          let rows = List.length (String.split_on_char '\n' base) in
-          let max_height = max 14 (rows - 4) in
+          let max_height = geom.max_height in
           let out =
             Miaou_widgets_display.Widgets.center_modal
               ~cols:(Some cols_val)
               ~rows:rows_val
               ~title
               ~dim_background
-              ~left
-              ~max_width
+              ~left:geom.left
+              ~max_width:geom.max_width
               ~max_height
               ~content
               ~base:acc

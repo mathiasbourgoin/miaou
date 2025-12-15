@@ -136,23 +136,19 @@ let clear_and_render (type a)
   let out_trimmed =
     if List.length lines <= max_rows then out
     else
-      let head_count = max 1 (max_rows - 1) in
       let rec take n lst =
         if n <= 0 then []
         else match lst with [] -> [] | x :: xs -> x :: take (n - 1) xs
       in
-      let last_line = List.nth lines (List.length lines - 1) in
-      let head = take head_count lines in
-      Helpers.concat_lines (head @ [last_line])
+      Helpers.concat_lines (take max_rows lines)
   in
   Capture.record_frame
     ~rows:size.LTerm_geom.rows
     ~cols:size.LTerm_geom.cols
     out_trimmed ;
-  let full_out = out_trimmed ^ "\n" in
-  if full_out <> !last_out_ref then (
-    print_string ("\027[2J\027[H" ^ full_out) ;
+  if out_trimmed <> !last_out_ref then (
+    print_string ("\027[2J\027[H" ^ out_trimmed) ;
     Stdlib.flush stdout ;
-    last_out_ref := full_out)
+    last_out_ref := out_trimmed)
   else () ;
   last_size := size

@@ -9,6 +9,7 @@ Source prompts (octez_setup/prompts/wip_plan):
 
 ## Session 2025-12-15
 - [x] 2025-12-15: Fix File_pager cleanup hang by scoping tail fibers to page lifecycle and updating docs/tests as needed.
+- [x] 2025-12-15: Fix modal sizing so modal pages render to the actual modal content height and don’t scroll into invisible items.
 
 ## Tasks
 - [ ] Gardening (M5_90)
