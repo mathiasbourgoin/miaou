@@ -21,6 +21,7 @@ type t = {
       (* kept for compatibility; source of truth is textbox when present *)
   path_error : string option;
   pending_selection : string option;
+  create_dir_on_enter : bool;
   textbox : Miaou_widgets_input.Textbox_widget.t option;
   history : string list; (* most-recent-first *)
   history_idx : int option; (* index into history while editing *)
@@ -82,6 +83,7 @@ let open_centered ?(path = "/") ?(dirs_only = true) ?(require_writable = true)
     path_buffer = "";
     path_error = None;
     pending_selection = None;
+    create_dir_on_enter = false;
     textbox = None;
     history = [];
     history_idx = None;
@@ -92,6 +94,14 @@ let clamp = List_nav.clamp
 let is_writable path =
   let sys = Miaou_interfaces.System.require () in
   match sys.probe_writable ~path with Ok b -> b | Error _ -> false
+
+let rec next_available_name ~existing ~prefix idx =
+  let candidate =
+    if idx = 0 then prefix else Printf.sprintf "%s_%d" prefix idx
+  in
+  if List.exists (fun (e : entry) -> e.name = candidate) existing then
+    next_available_name ~existing ~prefix (idx + 1)
+  else candidate
 
 let list_entries path ~dirs_only =
   let sys = Miaou_interfaces.System.require () in
@@ -213,6 +223,24 @@ let handle_key w ~key =
             cursor =
               List_nav.page_move ~total ~cursor:w.cursor ~page_size:8 ~dir:`Down;
           }
+      | "n" ->
+          if not (is_writable w.current_path) then
+            {w with path_error = Some "Not writable"}
+          else
+            let entries = list_entries_safe w.current_path ~dirs_only:false in
+            let suggested =
+              next_available_name ~existing:entries ~prefix:"new_directory" 0
+            in
+            let tb = textbox_create ~initial:suggested () in
+            {
+              w with
+              mode = EditingPath;
+              textbox = Some tb;
+              create_dir_on_enter = true;
+              path_error = None;
+              pending_selection = None;
+              history_idx = None;
+            }
       | "Shift-Space" ->
           {
             w with
@@ -273,6 +301,7 @@ let handle_key w ~key =
             mode = Browsing;
             path_error = None;
             pending_selection = None;
+            create_dir_on_enter = false;
             history_idx = None;
           }
       | ("Up" | "Down"), Some tb ->
@@ -347,38 +376,63 @@ let handle_key w ~key =
             let s = textbox_get_text tb in
             if s = "" then w.current_path else s
           in
-          let exists = sys.file_exists p in
-          if not exists then {w with path_error = Some "Path not found"}
+          let p =
+            if Filename.is_relative p then Filename.concat w.current_path p
+            else p
+          in
+          if w.create_dir_on_enter then
+            if sys.file_exists p then
+              {w with path_error = Some "Already exists"}
+            else
+              match sys.mkdir p with
+              | Ok () ->
+                  {
+                    w with
+                    current_path = p;
+                    cursor = 0;
+                    mode = Browsing;
+                    path_error = None;
+                    pending_selection = None;
+                    history =
+                      (let h = List.filter (fun x -> x <> p) w.history in
+                       p :: h);
+                    history_idx = None;
+                    create_dir_on_enter = false;
+                  }
+              | Error e -> {w with path_error = Some e}
           else
-            let writable_ok = (not w.require_writable) || is_writable p in
-            if sys.is_directory p then
-              if writable_ok then
+            let exists = sys.file_exists p in
+            if not exists then {w with path_error = Some "Path not found"}
+            else
+              let writable_ok = (not w.require_writable) || is_writable p in
+              if sys.is_directory p then
+                if writable_ok then
+                  {
+                    w with
+                    current_path = p;
+                    cursor = 0;
+                    mode = Browsing;
+                    path_error = None;
+                    pending_selection = None;
+                    history =
+                      (if p = "" then w.history
+                       else
+                         let h = List.filter (fun x -> x <> p) w.history in
+                         p :: h);
+                    history_idx = None;
+                  }
+                else {w with path_error = Some "Not writable"}
+              else if writable_ok then
                 {
                   w with
-                  current_path = p;
-                  cursor = 0;
-                  mode = Browsing;
+                  pending_selection = Some p;
                   path_error = None;
-                  pending_selection = None;
                   history =
-                    (if p = "" then w.history
-                     else
-                       let h = List.filter (fun x -> x <> p) w.history in
-                       p :: h);
+                    (let h = List.filter (fun x -> x <> p) w.history in
+                     p :: h);
                   history_idx = None;
                 }
               else {w with path_error = Some "Not writable"}
-            else if writable_ok then
-              {
-                w with
-                pending_selection = Some p;
-                path_error = None;
-                history =
-                  (let h = List.filter (fun x -> x <> p) w.history in
-                   p :: h);
-                history_idx = None;
-              }
-            else {w with path_error = Some "Not writable"}
       | _, Some tb -> {w with textbox = Some (textbox_handle_key tb ~key)}
       | _, None -> w)
 

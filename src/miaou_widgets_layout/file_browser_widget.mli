@@ -67,6 +67,9 @@ type t = {
   path_buffer : string;  (** Buffer for path editing *)
   path_error : string option;  (** Error message from invalid path *)
   pending_selection : string option;  (** Path pending selection *)
+  create_dir_on_enter : bool;
+      (** When [true], [Enter] in edit mode will create a new directory with the
+          textbox contents instead of navigating/selecting. *)
   textbox : Miaou_widgets_input.Textbox_widget.t option;
       (** Textbox for path editing *)
   history : string list;  (** Path history (most recent first) *)
@@ -182,15 +185,15 @@ val render : t -> focus:bool -> string
 
     Browsing mode keys:
     - [Up]/[Down]: Move cursor
-    - [Enter]: Enter selected directory
+    - [Enter]: Enter selected directory; on files/[.] select instead
     - [Backspace]: Go to parent directory
-    - [e]: Enter path editing mode
+    - [Tab]/[C-l]: Enter path editing mode
     - [/] or [~]: Start path editing with that character
-    - [m]: Open mkdir modal to create new directory
+    - [n]: Start inline mkdir by opening path editing prefilled with a new name
     - [Esc]: Cancel selection
 
     Path editing mode keys:
-    - [Enter]: Navigate to entered path
+    - [Enter]: Navigate to entered path, or create directory when started via [n]
     - [Esc]: Exit editing mode
     - [Tab]/[Shift-Tab]: Path completion (forward/backward)
     - [Up]/[Down]: Navigate history

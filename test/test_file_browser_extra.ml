@@ -164,6 +164,49 @@ let test_browse_dirs_when_not_selectable () =
         (Option.is_some (FB.get_selection w_file))
   | None -> fail "expected a selected entry"
 
+let test_n_creates_directory_and_enters () =
+  let created = ref [] in
+  let open Miaou_interfaces in
+  let sys =
+    let base_entries = ["dir1"; "dir2"; "file.txt"] in
+    let list_dir _ = Ok (base_entries @ !created) in
+    let exists p =
+      p = "/root"
+      ||
+      let name = Filename.basename p in
+      List.exists (( = ) name) (base_entries @ !created)
+    in
+    let mkdir path =
+      created := !created @ [Filename.basename path] ;
+      Ok ()
+    in
+    System.
+      {
+        file_exists = (fun p -> exists p);
+        is_directory =
+          (fun p ->
+            exists p
+            && not (String.ends_with ~suffix:".txt" (Filename.basename p)));
+        read_file = (fun _ -> Ok "");
+        write_file = (fun _ _ -> Ok ());
+        mkdir;
+        run_command =
+          (fun ~argv:_ ~cwd:_ ->
+            Ok System.{exit_code = 0; stdout = ""; stderr = ""});
+        get_current_user_info = (fun () -> Ok ("user", "/home/user"));
+        get_disk_usage = (fun ~path:_ -> Ok 0L);
+        list_dir;
+        probe_writable = (fun ~path:_ -> Ok true);
+        get_env_var = (fun _ -> None);
+      }
+  in
+  System.set sys ;
+  let w = FB.open_centered ~path:"/root" ~dirs_only:false () in
+  let w = FB.handle_key w ~key:"n" in
+  let w = FB.handle_key w ~key:"Enter" in
+  check string "entered new dir" "/root/new_directory" (FB.get_current_path w) ;
+  check bool "no path error" true (Option.is_none w.FB.path_error)
+
 let () =
   run
     "file_browser_extra"
@@ -183,5 +226,9 @@ let () =
             "browse dirs when not selectable"
             `Quick
             test_browse_dirs_when_not_selectable;
+          test_case
+            "n creates directory"
+            `Quick
+            test_n_creates_directory_and_enters;
         ] );
     ]
