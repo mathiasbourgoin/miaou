@@ -3,7 +3,7 @@ module Checkbox = Miaou_widgets_input.Checkbox_widget
 module Radio = Miaou_widgets_input.Radio_button_widget
 module Switch = Miaou_widgets_input.Switch_widget
 module Button = Miaou_widgets_input.Button_widget
-module Checkbox_demo = Demo_lib.Checkbox_demo_page
+module Checkbox_demo = Checkbox_demo.Page
 module Tutorial_modal = Demo_shared.Tutorial_modal
 
 let demo_size : LTerm_geom.size = {rows = 24; cols = 80}
