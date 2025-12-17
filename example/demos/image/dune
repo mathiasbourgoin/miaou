@@ -1,0 +1,13 @@
+(library
+ (name image_demo)
+ (modules page)
+ (preprocess (pps ppx_blob))
+ (preprocessor_deps (file README.md))
+ (libraries demo_shared miaou miaou.lib_miaou_internal))
+
+(executable
+ (name main)
+ (public_name miaou.image-demo)
+ (package miaou)
+ (modules main)
+ (libraries image_demo miaou.runner.tui miaou.helpers eio_main))

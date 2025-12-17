@@ -8,5 +8,6 @@
   mock_net
   mock_palette
   system_metrics
+  system_monitor_sdl
   tutorial_modal)
- (libraries miaou miaou.lib_miaou_internal))
+ (libraries miaou miaou.lib_miaou_internal tsdl tsdl-ttf))

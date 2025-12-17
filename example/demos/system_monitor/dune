@@ -1,0 +1,13 @@
+(library
+ (name system_monitor_demo)
+ (modules page)
+ (preprocess (pps ppx_blob))
+ (preprocessor_deps (file README.md))
+ (libraries demo_shared miaou miaou.lib_miaou_internal str unix))
+
+(executable
+ (name main)
+ (public_name miaou.system_monitor-demo)
+ (package miaou)
+ (modules main)
+ (libraries system_monitor_demo miaou.runner.tui miaou.helpers eio_main))

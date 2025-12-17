@@ -1,0 +1,13 @@
+(library
+ (name card_sidebar_demo)
+ (modules page)
+ (preprocess (pps ppx_blob))
+ (preprocessor_deps (file README.md))
+ (libraries demo_shared miaou miaou.lib_miaou_internal))
+
+(executable
+ (name main)
+ (public_name miaou.card_sidebar-demo)
+ (package miaou)
+ (modules main)
+ (libraries card_sidebar_demo miaou.runner.tui miaou.helpers eio_main))
