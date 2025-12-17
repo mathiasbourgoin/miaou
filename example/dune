@@ -1,9 +1,9 @@
 ; Legacy demo library - will be replaced by gallery/
 (library
  (name miaou_demo_lib)
- (modules demo_lib system_monitor_sdl)
+ (modules demo_lib)
  (wrapped false)
- (libraries demo_shared miaou miaou.lib_miaou_internal tsdl tsdl-ttf eio))
+ (libraries demo_shared demo_modals miaou miaou.lib_miaou_internal tsdl tsdl-ttf eio))
 
 (executable
  (name demo_tui)
@@ -18,10 +18,3 @@
  (package miaou)
  (modules demo_sdl)
  (libraries miaou_demo_lib miaou.runner.native miaou.helpers eio_main))
-
-(executable
- (name braille_demo)
- (public_name miaou.braille-demo)
- (package miaou)
- (modules braille_demo)
- (libraries miaou.widgets.display))
