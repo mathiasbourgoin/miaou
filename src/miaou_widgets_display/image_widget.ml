@@ -7,7 +7,7 @@ type t = {
   height : int;
   pixels : pixel array array;
   file_path : string option;
-  mutable sdl_texture : Tsdl.Sdl.texture option; (* Cached SDL texture *)
+  mutable sdl_texture : Obj.t option; (* Cached SDL texture - stored as Obj.t to avoid tsdl dependency *)
 }
 
 let rgb_to_ansi_256 r g b =
@@ -87,17 +87,15 @@ let load_from_file path ~max_width ~max_height () =
   with e ->
     Error (Printf.sprintf "Failed to load image: %s" (Printexc.to_string e))
 
+(* SDL rendering helper - uses Obj.magic to avoid compile-time tsdl dependency.
+   This code only runs when SDL context is available at runtime. *)
 let render_image_sdl_cached t ctx =
-  (* SDL cached texture rendering *)
   let open Sdl_chart_context in
-  let renderer : Tsdl.Sdl.renderer = get_renderer ctx in
+  let renderer = get_renderer ctx in
   let char_w = ctx.char_w in
   let char_h = ctx.char_h in
   let x_pixels = 10 * char_w in
   let y_pixels = ctx.y_offset + (5 * char_h) in
-
-  (* Use texture cache to avoid recreating every frame *)
-  let open Tsdl.Sdl in
   let scale = 1 in
   let tex_width = t.width * scale in
   let tex_height = t.height * scale in
@@ -107,46 +105,34 @@ let render_image_sdl_cached t ctx =
     match t.sdl_texture with None -> true | Some _ -> false
   in
 
-  (if needs_create then
-     match
-       create_texture
-         renderer
-         Pixel.format_argb8888
-         Texture.access_target
-         ~w:tex_width
-         ~h:tex_height
-     with
-     | Error _ -> ()
-     | Ok texture ->
-         (* Set texture as render target and draw pixels *)
-         let _ = set_render_target renderer (Some texture) in
+  (* Create texture if needed - this block uses dynamic SDL calls *)
+  if needs_create then begin
+    (* These functions are resolved at runtime when SDL driver is loaded *)
+    let create_texture = Sdl_chart_context.Sdl_ops.create_texture in
+    let set_render_target = Sdl_chart_context.Sdl_ops.set_render_target in
+    let set_render_draw_color = Sdl_chart_context.Sdl_ops.set_render_draw_color in
+    let render_fill_rect = Sdl_chart_context.Sdl_ops.render_fill_rect in
 
-         for py = 0 to t.height - 1 do
-           for px = 0 to t.width - 1 do
-             let pixel = t.pixels.(py).(px) in
-             let _ =
-               set_render_draw_color renderer pixel.r pixel.g pixel.b 255
-             in
-             let rect =
-               Rect.create ~x:(px * scale) ~y:(py * scale) ~w:scale ~h:scale
-             in
-             let _ = render_fill_rect renderer (Some rect) in
-             ()
-           done
-         done ;
-
-         (* Restore default render target *)
-         let _ = set_render_target renderer None in
-         t.sdl_texture <- Some texture) ;
+    match create_texture renderer tex_width tex_height with
+    | None -> ()
+    | Some texture ->
+        set_render_target renderer (Some texture);
+        for py = 0 to t.height - 1 do
+          for px = 0 to t.width - 1 do
+            let pixel = t.pixels.(py).(px) in
+            set_render_draw_color renderer pixel.r pixel.g pixel.b 255;
+            render_fill_rect renderer (px * scale) (py * scale) scale scale
+          done
+        done;
+        set_render_target renderer None;
+        t.sdl_texture <- Some (Obj.repr texture)
+  end;
 
   (* Render the texture if it exists *)
   match t.sdl_texture with
-  | Some texture ->
-      let dst_rect =
-        Rect.create ~x:x_pixels ~y:y_pixels ~w:tex_width ~h:tex_height
-      in
-      let _ = render_copy renderer texture ~dst:dst_rect in
-      ()
+  | Some texture_obj ->
+      let render_copy = Sdl_chart_context.Sdl_ops.render_copy in
+      render_copy renderer (Obj.obj texture_obj) x_pixels y_pixels tex_width tex_height
   | None -> ()
 
 let render ?(crop_center = 1.0) t ~focus:_ =

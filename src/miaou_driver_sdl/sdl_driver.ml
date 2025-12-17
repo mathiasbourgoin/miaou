@@ -187,6 +187,38 @@ let pick_font_path (cfg : config) =
 
 let sdl_fail prefix msg = failwith (Printf.sprintf "%s: %s" prefix msg)
 
+(* Register SDL operations with the abstract Sdl_ops module in widgets.display.
+   This allows widgets to perform SDL operations without compile-time tsdl dependency. *)
+let register_sdl_ops () =
+  let module Ops = Miaou_widgets_display.Sdl_chart_context.Sdl_ops in
+
+  Ops.register_create_texture (fun renderer_obj w h ->
+    let renderer : Sdl.renderer = Obj.obj renderer_obj in
+    match Sdl.create_texture renderer Sdl.Pixel.format_argb8888
+            Sdl.Texture.access_target ~w ~h with
+    | Error _ -> None
+    | Ok tex -> Some (Obj.repr tex));
+
+  Ops.register_set_render_target (fun renderer_obj target_opt ->
+    let renderer : Sdl.renderer = Obj.obj renderer_obj in
+    let target = Option.map (fun t -> Obj.obj t) target_opt in
+    ignore (Sdl.set_render_target renderer target));
+
+  Ops.register_set_render_draw_color (fun renderer_obj r g b a ->
+    let renderer : Sdl.renderer = Obj.obj renderer_obj in
+    ignore (Sdl.set_render_draw_color renderer r g b a));
+
+  Ops.register_render_fill_rect (fun renderer_obj x y w h ->
+    let renderer : Sdl.renderer = Obj.obj renderer_obj in
+    let rect = Sdl.Rect.create ~x ~y ~w ~h in
+    ignore (Sdl.render_fill_rect renderer (Some rect)));
+
+  Ops.register_render_copy (fun renderer_obj texture_obj x y w h ->
+    let renderer : Sdl.renderer = Obj.obj renderer_obj in
+    let texture : Sdl.texture = Obj.obj texture_obj in
+    let dst_rect = Sdl.Rect.create ~x ~y ~w ~h in
+    ignore (Sdl.render_copy renderer texture ~dst:dst_rect))
+
 let with_sdl init_fn =
   match Sdl.init Sdl.Init.(video) with
   | Error (`Msg e) -> sdl_fail "SDL init" e
@@ -198,6 +230,7 @@ let with_sdl init_fn =
           sdl_fail "SDL_ttf init" e
       | Ok () -> (
           try
+            register_sdl_ops () ;
             let res = init_fn () in
             Ttf.quit () ;
             Sdl.quit () ;

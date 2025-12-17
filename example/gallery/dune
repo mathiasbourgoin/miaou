@@ -34,18 +34,18 @@
   braille_demo
   ; Core miaou
   miaou
-  miaou.lib_miaou_internal))
+  miaou-core.lib_miaou_internal))
 
 (executable
  (name main_tui)
  (public_name miaou.demo)
  (package miaou)
  (modules main_tui)
- (libraries gallery miaou.runner.tui miaou.helpers eio_main))
+ (libraries gallery miaou-runner.tui miaou-core.helpers eio_main))
 
 (executable
  (name main_sdl)
  (public_name miaou.demo-sdl)
  (package miaou)
  (modules main_sdl)
- (libraries gallery miaou.runner.native miaou.helpers eio_main))
+ (libraries gallery miaou-driver-sdl.runner miaou-core.helpers eio_main))

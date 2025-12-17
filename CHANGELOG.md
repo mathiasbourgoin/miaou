@@ -11,8 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Modal sizing supports dynamic width specs (`Fixed`, `Ratio`, `Clamped`) resolved at render time, including fallback terminal size detection via `/dev/tty` so modals resize with the terminal even when `System` is mocked.
 
+### Changed (2025-12-17)
+
+#### Opam package restructuring for optional SDL
+
+Restructured opam packages to allow terminal-only builds without SDL2 dependency:
+
+- **`miaou-core`**: Standalone core package with all widgets, no SDL dependencies
+- **`miaou-driver-term`**: Terminal driver, depends only on `miaou-core`
+- **`miaou-driver-sdl`**: SDL driver with SDL2 dependencies (`tsdl`, `tsdl-ttf`, `tsdl-image`)
+- **`miaou-widgets-display-sdl`**: SDL-specific widget implementations
+- **`miaou-runner`**: Runner with `miaou-driver-sdl` as optional dependency
+- **`miaou-tui`**: Meta-package for terminal-only installs (no SDL)
+- **`miaou`**: Meta-package for full install (includes SDL)
+
+Terminal-only users can now: `opam install miaou-tui`
+
 ### Breaking Changes (2025-12-17)
 
+- Library public names changed to use package prefixes:
+  - `miaou.core` → `miaou-core.core`
+  - `miaou.widgets.display` → `miaou-core.widgets.display`
+  - `miaou.driver.term` → `miaou-driver-term.driver`
+  - `miaou.driver.sdl` → `miaou-driver-sdl.driver`
+  - And similar for other libraries
+- `Miaou_widgets_display.Sparkline_widget_sdl` moved to `Miaou_widgets_display_sdl.Sparkline_widget_sdl` (and similar for other SDL widgets)
 - `Modal_manager.ui.max_width` (and related helpers) now expects `max_width_spec option` instead of `int option`; wrap existing fixed widths with `Fixed n` or switch to ratio/clamped specs.
 
 ### Changed (2025-12-15)

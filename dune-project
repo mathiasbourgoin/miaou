@@ -5,8 +5,8 @@
 (license MIT)
 
 (package
- (name miaou)
- (synopsis "A TUI framework for OCaml")
+ (name miaou-core)
+ (synopsis "Miaou core/widgets (no drivers, no SDL)")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
  (homepage "https://gitlab.com/mbourgoin/miaou")
@@ -17,41 +17,81 @@
   eio
   eio_main
   lambda-term
-  tsdl
-  tsdl-ttf
   rresult
- uri
- yojson
- imagelib
- qrc
- ppx_blob
- (alcotest :with-test)
- (bisect_ppx :with-test)))
-
-(package
- (name miaou-core)
- (synopsis "Miaou core/widgets (no drivers)")
- (depends miaou)
- (allow_empty true))
+  uri
+  yojson
+  imagelib
+  qrc
+  ppx_blob
+  (alcotest :with-test)
+  (bisect_ppx :with-test)))
 
 (package
  (name miaou-driver-term)
  (synopsis "Miaou terminal driver")
- (depends miaou-core)
- (allow_empty true))
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (depends miaou-core))
+
+(package
+ (name miaou-widgets-display-sdl)
+ (synopsis "Miaou SDL widget implementations")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (depends
+  miaou-core
+  tsdl))
 
 (package
  (name miaou-driver-sdl)
  (synopsis "Miaou SDL driver")
- (depends 
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (depends
   miaou-core
+  miaou-widgets-display-sdl
   tsdl
   tsdl-ttf
-  tsdl-image)
- (allow_empty true))
+  tsdl-image))
 
 (package
  (name miaou-runner)
  (synopsis "Miaou runner with backend selection")
- (depends miaou-core miaou-driver-term miaou-driver-sdl)
- (allow_empty true))
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (depends miaou-core miaou-driver-term)
+ (depopts miaou-driver-sdl))
+
+(package
+ (name miaou-tui)
+ (synopsis "Miaou TUI framework - terminal only (no SDL)")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (allow_empty)
+ (depends
+  miaou-core
+  miaou-driver-term
+  miaou-runner))
+
+(package
+ (name miaou)
+ (synopsis "A TUI framework for OCaml (full install with SDL)")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://gitlab.com/mbourgoin/miaou")
+ (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (depends
+  miaou-core
+  miaou-driver-term
+  miaou-driver-sdl
+  miaou-runner))

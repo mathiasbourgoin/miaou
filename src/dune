@@ -4,7 +4,7 @@
 
 (library
  (name miaou)
- (public_name miaou)
+ (public_name miaou.lib)
  (modules miaou net cohttp_net)
  (instrumentation
   (backend bisect_ppx))
@@ -13,12 +13,12 @@
   cohttp-eio
   eio
   eio.unix
-  miaou.core
-  miaou.interfaces
-  miaou.internals
-  miaou.widgets.display
-  miaou.widgets.input
-  miaou.widgets.layout
-  miaou.widgets.navigation
+  miaou-core.core
+  miaou-core.interfaces
+  miaou-core.internals
+  miaou-core.widgets.display
+  miaou-core.widgets.input
+  miaou-core.widgets.layout
+  miaou-core.widgets.navigation
   rresult
   uri))

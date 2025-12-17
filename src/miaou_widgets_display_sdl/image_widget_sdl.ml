@@ -1,6 +1,6 @@
 (** SDL renderer for image widget with texture caching *)
 
-module Img = Image_widget
+module Img = Miaou_widgets_display.Image_widget
 
 type cached_texture = {
   texture : Tsdl.Sdl.texture;

@@ -7,7 +7,8 @@
 
 (* SDL-enhanced sparkline widget with smooth vector rendering *)
 
-module W = Widgets
+module W = Miaou_widgets_display.Widgets
+module Sparkline_widget = Miaou_widgets_display.Sparkline_widget
 
 type sdl_render_info = {
   renderer : Tsdl.Sdl.renderer;

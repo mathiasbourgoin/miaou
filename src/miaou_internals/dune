@@ -2,7 +2,7 @@
 
 (library
  (name miaou_internals)
- (public_name miaou.internals)
+ (public_name miaou-core.internals)
  (modules
   modal_renderer
   modal_snapshot
@@ -11,6 +11,6 @@
   focus_chain)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou.widgets.layout miaou.widgets.display lambda-term))
+ (libraries miaou-core.widgets.layout miaou-core.widgets.display lambda-term))
 
 ;; Key handler stack module added for hierarchical key exclusivity

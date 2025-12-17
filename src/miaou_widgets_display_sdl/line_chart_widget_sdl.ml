@@ -7,7 +7,9 @@
 
 (* SDL-enhanced line chart widget with smooth anti-aliased rendering *)
 
-module W = Widgets
+module W = Miaou_widgets_display.Widgets
+module Line_chart_widget = Miaou_widgets_display.Line_chart_widget
+module Chart_utils = Miaou_widgets_display.Chart_utils
 
 type sdl_render_info = {
   renderer : Tsdl.Sdl.renderer;

@@ -32,31 +32,31 @@ type sdl_render_info = {
     - [thresholds] Optional thresholds for coloring segments *)
 val render_sdl :
   sdl_render_info ->
-  Sparkline_widget.t ->
+  Miaou_widgets_display.Sparkline_widget.t ->
   focus:bool ->
   show_value:bool ->
   ?color:string ->
-  ?thresholds:Sparkline_widget.threshold list ->
+  ?thresholds:Miaou_widgets_display.Sparkline_widget.threshold list ->
   unit ->
   unit
 
 (** Fallback to text-based rendering for terminal mode.
     Returns the rendered sparkline as a string. *)
 val render :
-  Sparkline_widget.t ->
+  Miaou_widgets_display.Sparkline_widget.t ->
   focus:bool ->
   show_value:bool ->
   ?color:string ->
-  ?thresholds:Sparkline_widget.threshold list ->
+  ?thresholds:Miaou_widgets_display.Sparkline_widget.threshold list ->
   unit ->
   string
 
 (** Render with a label prefix (text mode only). *)
 val render_with_label :
-  Sparkline_widget.t ->
+  Miaou_widgets_display.Sparkline_widget.t ->
   label:string ->
   focus:bool ->
   ?color:string ->
-  ?thresholds:Sparkline_widget.threshold list ->
+  ?thresholds:Miaou_widgets_display.Sparkline_widget.threshold list ->
   unit ->
   string

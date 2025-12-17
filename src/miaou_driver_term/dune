@@ -1,6 +1,6 @@
 (library
  (name miaou_driver_term)
- (public_name miaou.driver.term)
+ (public_name miaou-driver-term.driver)
  (modules
   lambda_term_driver
   term_events
@@ -13,14 +13,14 @@
  (instrumentation
   (backend bisect_ppx))
  (libraries
-  miaou.core
-  miaou.helpers
-  miaou.driver-common
-  miaou.interfaces
-  miaou.internals
-  miaou.widgets.display
-  miaou.widgets.input
-  miaou.widgets.layout
+  miaou-core.core
+  miaou-core.helpers
+  miaou-core.driver-common
+  miaou-core.interfaces
+  miaou-core.internals
+  miaou-core.widgets.display
+  miaou-core.widgets.input
+  miaou-core.widgets.layout
   eio
   eio_main
   eio.unix
