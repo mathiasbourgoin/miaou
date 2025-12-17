@@ -1,6 +1,6 @@
 (** SDL renderer for QR code widget *)
 
-module QR = Qr_code_widget
+module QR = Miaou_widgets_display.Qr_code_widget
 
 let render renderer qr_widget ~x ~y ~module_size =
   let open Tsdl.Sdl in

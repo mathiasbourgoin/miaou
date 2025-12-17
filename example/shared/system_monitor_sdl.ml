@@ -10,9 +10,9 @@
    and use enhanced rendering when available, falling back to text otherwise *)
 
 module Sparkline = Miaou_widgets_display.Sparkline_widget
-module Sparkline_sdl = Miaou_widgets_display.Sparkline_widget_sdl
+module Sparkline_sdl = Miaou_widgets_display_sdl.Sparkline_widget_sdl
 module Line_chart = Miaou_widgets_display.Line_chart_widget
-module Line_chart_sdl = Miaou_widgets_display.Line_chart_widget_sdl
+module Line_chart_sdl = Miaou_widgets_display_sdl.Line_chart_widget_sdl
 module SDL_ctx = Miaou_widgets_display.Sdl_chart_context
 module Sdl = Tsdl.Sdl
 module Ttf = Tsdl_ttf.Ttf

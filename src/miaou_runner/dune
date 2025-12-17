@@ -1,26 +1,26 @@
 (library
  (name miaou_runner_common)
- (public_name miaou.runner.common)
+ (public_name miaou-runner.common)
  (modules tui_driver_common html_driver runner_cli)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou.core miaou.interfaces miaou.widgets.display miaou.helpers))
+ (libraries miaou-core.core miaou-core.interfaces miaou-core.widgets.display miaou-core.helpers))
 
 (library
  (name miaou_runner_tui)
- (public_name miaou.runner.tui)
+ (public_name miaou-runner.tui)
  (modules runner_tui)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou_runner_common miaou.driver.term))
+ (libraries miaou_runner_common miaou-driver-term.driver))
 
 (library
  (name miaou_runner_native)
- (public_name miaou.runner.native)
+ (public_name miaou-driver-sdl.runner)
  (modules runner_native)
  (instrumentation
   (backend bisect_ppx))
- (libraries miaou_runner_common miaou.driver.term miaou.driver.sdl))
+ (libraries miaou_runner_common miaou-driver-term.driver miaou-driver-sdl.driver))
 
 (executable
  (name miaou_runner_tui_main)
@@ -29,7 +29,7 @@
  (instrumentation
   (backend bisect_ppx))
  (package miaou-runner)
- (libraries miaou_runner_tui miaou_runner_common miaou.helpers eio_main))
+ (libraries miaou_runner_tui miaou_runner_common miaou-core.helpers eio_main))
 
 (executable
  (name miaou_runner_native_main)
@@ -37,5 +37,5 @@
  (modules Miaou_runner_native_main)
  (instrumentation
   (backend bisect_ppx))
- (package miaou-runner)
- (libraries miaou_runner_native miaou_runner_common miaou.helpers eio_main))
+ (package miaou-driver-sdl)
+ (libraries miaou_runner_native miaou_runner_common miaou-core.helpers eio_main))

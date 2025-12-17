@@ -1,0 +1,13 @@
+(library
+ (name miaou_widgets_display_sdl)
+ (public_name miaou-widgets-display-sdl.widgets)
+ (modules
+  sparkline_widget_sdl
+  line_chart_widget_sdl
+  image_widget_sdl
+  qr_code_widget_sdl)
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries
+  miaou-core.widgets.display
+  tsdl))

@@ -3,11 +3,11 @@
  (modules page)
  (preprocess (pps ppx_blob))
  (preprocessor_deps (file README.md))
- (libraries demo_shared miaou miaou.lib_miaou_internal miaou.helpers unix))
+ (libraries demo_shared miaou miaou-core.lib_miaou_internal miaou-core.helpers unix))
 
 (executable
  (name main)
  (public_name miaou.pager-demo)
  (package miaou)
  (modules main)
- (libraries pager_demo miaou.runner.tui miaou.helpers eio_main))
+ (libraries pager_demo miaou-runner.tui miaou-core.helpers eio_main))

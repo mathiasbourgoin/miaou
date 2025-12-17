@@ -31,19 +31,19 @@ type sdl_render_info = {
     - [thresholds] Optional thresholds for coloring points/lines *)
 val render_sdl :
   sdl_render_info ->
-  Line_chart_widget.t ->
+  Miaou_widgets_display.Line_chart_widget.t ->
   show_axes:bool ->
   show_grid:bool ->
-  ?thresholds:Line_chart_widget.threshold list ->
+  ?thresholds:Miaou_widgets_display.Line_chart_widget.threshold list ->
   unit ->
   unit
 
 (** Fallback to text-based rendering for terminal mode.
     Returns the rendered chart as a string. *)
 val render :
-  Line_chart_widget.t ->
+  Miaou_widgets_display.Line_chart_widget.t ->
   show_axes:bool ->
   show_grid:bool ->
-  ?thresholds:Line_chart_widget.threshold list ->
+  ?thresholds:Miaou_widgets_display.Line_chart_widget.threshold list ->
   unit ->
   string

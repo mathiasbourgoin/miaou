@@ -1,6 +1,6 @@
 (library
  (name miaou_widgets_display)
- (public_name miaou.widgets.display)
+ (public_name miaou-core.widgets.display)
  (modules
   pager_widget
   file_pager
@@ -9,17 +9,13 @@
   tree_widget
   description_list
   sparkline_widget
-  sparkline_widget_sdl
   line_chart_widget
-  line_chart_widget_sdl
   bar_chart_widget
   chart_utils
   braille_canvas
   sdl_chart_context
   qr_code_widget
-  qr_code_widget_sdl
   image_widget
-  image_widget_sdl
   widgets
   palette
   palette_sdl)
@@ -31,9 +27,8 @@
   eio
   eio.unix
   unix
-  miaou.helpers
-  miaou.interfaces
-  tsdl
+  miaou-core.helpers
+  miaou-core.interfaces
   qrc
   imagelib
   imagelib.unix))

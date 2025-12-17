@@ -1,238 +1,238 @@
 (test
  (name test_vsection)
  (modules test_vsection)
- (libraries alcotest lambda-term miaou.widgets.layout))
+ (libraries alcotest lambda-term miaou-core.widgets.layout))
 
 (test
  (name test_modal_overlay)
  (modules test_modal_overlay)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_modal_wrap)
  (modules test_modal_wrap)
- (libraries alcotest miaou.widgets.display miaou.internals))
+ (libraries alcotest miaou-core.widgets.display miaou-core.internals))
 
 (test
  (name test_widgets)
  (modules test_widgets)
  (libraries
   alcotest
-  miaou.interfaces
-  miaou.widgets.layout
-  miaou.widgets.display))
+  miaou-core.interfaces
+  miaou-core.widgets.layout
+  miaou-core.widgets.display))
 
 (test
  (name textbox_widget_test)
  (modules textbox_widget_test)
- (libraries miaou.widgets.input))
+ (libraries miaou-core.widgets.input))
 
 (test
  (name test_pager_streaming)
  (modules test_pager_streaming)
- (libraries miaou.widgets.display))
+ (libraries miaou-core.widgets.display))
 
 (test
  (name test_file_pager_cleanup)
  (modules test_file_pager_cleanup)
- (libraries alcotest eio_main miaou.helpers miaou.widgets.display))
+ (libraries alcotest eio_main miaou-core.helpers miaou-core.widgets.display))
 
 (test
  (name test_file_pager_double_close)
  (modules test_file_pager_double_close)
- (libraries alcotest eio_main miaou.helpers miaou.widgets.display))
+ (libraries alcotest eio_main miaou-core.helpers miaou-core.widgets.display))
 
 (test
  (name test_adaptive_layout)
  (modules test_adaptive_layout)
  (libraries
   alcotest
-  miaou.core
-  miaou.widgets.layout
-  miaou.lib_miaou_internal))
+  miaou-core.core
+  miaou-core.widgets.layout
+  miaou-core.lib_miaou_internal))
 
 (test
  (name test_capture)
  (modules test_capture)
- (libraries alcotest miaou.core miaou.lib_miaou_internal))
+ (libraries alcotest miaou-core.core miaou-core.lib_miaou_internal))
 
 (test
  (name test_modal_utils)
  (modules test_modal_utils)
- (libraries alcotest miaou.internals miaou.widgets.display))
+ (libraries alcotest miaou-core.internals miaou-core.widgets.display))
 
 (test
  (name test_layout_utils)
  (modules test_layout_utils)
- (libraries alcotest miaou.widgets.layout miaou.helpers))
+ (libraries alcotest miaou-core.widgets.layout miaou-core.helpers))
 
 (test
  (name test_layout_widgets_new)
  (modules test_layout_widgets_new)
- (libraries alcotest miaou.widgets.layout))
+ (libraries alcotest miaou-core.widgets.layout))
 
 (test
  (name test_flash_headless)
  (modules test_flash_headless)
  (libraries
   alcotest
-  miaou.lib_miaou_internal
-  miaou.widgets.display
-  miaou.widgets.layout))
+  miaou-core.lib_miaou_internal
+  miaou-core.widgets.display
+  miaou-core.widgets.layout))
 
 (test
  (name test_palette)
  (modules test_palette)
- (libraries alcotest miaou.interfaces miaou.widgets.display))
+ (libraries alcotest miaou-core.interfaces miaou-core.widgets.display))
 
 (test
  (name test_modal_manager)
  (modules test_modal_manager)
- (libraries alcotest miaou.core))
+ (libraries alcotest miaou-core.core))
 
 (test
  (name test_modal_renderer)
  (modules test_modal_renderer)
- (libraries alcotest miaou.internals))
+ (libraries alcotest miaou-core.internals))
 
 (test
  (name test_drivers_smoke)
  (modules test_drivers_smoke)
- (libraries alcotest miaou.driver.term miaou.driver.sdl miaou.runner.common))
+ (libraries alcotest miaou-driver-term.driver miaou-driver-sdl.driver miaou-runner.common))
 
 (test
  (name test_core_utils)
  (modules test_core_utils)
- (libraries alcotest miaou.core miaou.internals))
+ (libraries alcotest miaou-core.core miaou-core.internals))
 
 (test
  (name test_pager_extra)
  (modules test_pager_extra)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_file_browser)
  (modules test_file_browser)
  (libraries
   alcotest
-  miaou.widgets.layout
-  miaou.interfaces
-  miaou.widgets.input))
+  miaou-core.widgets.layout
+  miaou-core.interfaces
+  miaou-core.widgets.input))
 
 (test
  (name test_integration_tui)
  (modules test_integration_tui)
  (libraries
   alcotest
-  miaou.core
-  miaou.widgets.display
-  miaou.widgets.layout
-  miaou.lib_miaou_internal))
+  miaou-core.core
+  miaou-core.widgets.display
+  miaou-core.widgets.layout
+  miaou-core.lib_miaou_internal))
 
 (test
  (name test_widgets_helpers)
  (modules test_widgets_helpers)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_feedback_widgets)
  (modules test_feedback_widgets)
- (libraries alcotest miaou.widgets.layout))
+ (libraries alcotest miaou-core.widgets.layout))
 
 (test
  (name test_textbox_more)
  (modules test_textbox_more)
- (libraries alcotest miaou.widgets.input))
+ (libraries alcotest miaou-core.widgets.input))
 
 (test
  (name test_headless_more)
  (modules test_headless_more)
- (libraries alcotest miaou.lib_miaou_internal))
+ (libraries alcotest miaou-core.lib_miaou_internal))
 
 (test
  (name test_file_browser_extra)
  (modules test_file_browser_extra)
  (libraries
   alcotest
-  miaou.widgets.layout
-  miaou.widgets.input
-  miaou.interfaces
+  miaou-core.widgets.layout
+  miaou-core.widgets.input
+  miaou-core.interfaces
   str))
 
 (test
  (name test_table_sdl)
  (modules test_table_sdl)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_headless_run)
  (modules test_headless_run)
- (libraries alcotest miaou.lib_miaou_internal))
+ (libraries alcotest miaou-core.lib_miaou_internal))
 
 (test
  (name test_driver_modal_navigation)
  (modules test_driver_modal_navigation)
- (libraries alcotest miaou.core miaou.driver.term))
+ (libraries alcotest miaou-core.core miaou-driver-term.driver))
 
 (test
  (name test_core_driver_modal_navigation)
  (modules test_core_driver_modal_navigation)
- (libraries alcotest miaou.core miaou.driver.term))
+ (libraries alcotest miaou-core.core miaou-driver-term.driver))
 
 (test
  (name test_navigation_widgets)
  (modules test_navigation_widgets)
- (libraries alcotest miaou.widgets.navigation miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.navigation miaou-core.widgets.display))
 
 (test
  (name test_flex_layout)
  (modules test_flex_layout)
- (libraries alcotest miaou.widgets.layout miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.layout miaou-core.widgets.display))
 
 (test
  (name test_input_widgets)
  (modules test_input_widgets)
  (libraries
   alcotest
-  miaou.widgets.input
-  miaou.widgets.display
+  miaou-core.widgets.input
+  miaou-core.widgets.display
   demo_shared
   checkbox_demo))
 
 (test
  (name test_description_list)
  (modules test_description_list)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_table_wrap)
  (modules test_table_wrap)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_focus_chain)
  (modules test_focus_chain)
- (libraries alcotest miaou.internals))
+ (libraries alcotest miaou-core.internals))
 
 (test
  (name test_sparkline)
  (modules test_sparkline)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_line_chart)
  (modules test_line_chart)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_bar_chart)
  (modules test_bar_chart)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_braille_canvas)
  (modules test_braille_canvas)
- (libraries alcotest miaou.widgets.display))
+ (libraries alcotest miaou-core.widgets.display))
 
 (test
  (name test_registry_validation)
