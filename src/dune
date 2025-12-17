@@ -4,7 +4,7 @@
 
 (library
  (name miaou)
- (public_name miaou.lib)
+ (public_name miaou-core.lib)
  (modules miaou net cohttp_net)
  (instrumentation
   (backend bisect_ppx))

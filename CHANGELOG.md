@@ -24,12 +24,14 @@ Restructured opam packages to allow terminal-only builds without SDL2 dependency
 - **`miaou-runner`**: Runner with `miaou-driver-sdl` as optional dependency
 - **`miaou-tui`**: Meta-package for terminal-only installs (no SDL)
 - **`miaou`**: Meta-package for full install (includes SDL)
+- **`miaou-core.lib`**: The convenience `Miaou` module (re-exporting Core, Widgets, etc.) is now part of `miaou-core`, available to terminal-only users
 
 Terminal-only users can now: `opam install miaou-tui`
 
 ### Breaking Changes (2025-12-17)
 
 - Library public names changed to use package prefixes:
+  - `miaou.lib` → `miaou-core.lib`
   - `miaou.core` → `miaou-core.core`
   - `miaou.widgets.display` → `miaou-core.widgets.display`
   - `miaou.driver.term` → `miaou-driver-term.driver`
