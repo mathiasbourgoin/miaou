@@ -197,7 +197,7 @@
   miaou.widgets.input
   miaou.widgets.display
   demo_shared
-  miaou_demo_lib))
+  checkbox_demo))
 
 (test
  (name test_description_list)

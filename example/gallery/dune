@@ -1,0 +1,51 @@
+(library
+ (name gallery)
+ (modules launcher)
+ (libraries
+  demo_shared
+  demo_modals
+  ; All demo libraries
+  checkbox_demo
+  radio_demo
+  switch_demo
+  button_demo
+  validated_textbox_demo
+  sparkline_demo
+  key_handling_demo
+  table_demo
+  palette_demo
+  logger_demo
+  tree_demo
+  layout_helpers_demo
+  link_demo
+  breadcrumbs_demo
+  tabs_demo
+  toast_demo
+  flex_layout_demo
+  description_list_demo
+  spinner_progress_demo
+  line_chart_demo
+  bar_chart_demo
+  qr_code_demo
+  image_demo
+  card_sidebar_demo
+  pager_demo
+  system_monitor_demo
+  braille_demo
+  ; Core miaou
+  miaou
+  miaou.lib_miaou_internal))
+
+(executable
+ (name main_tui)
+ (public_name miaou.demo)
+ (package miaou)
+ (modules main_tui)
+ (libraries gallery miaou.runner.tui miaou.helpers eio_main))
+
+(executable
+ (name main_sdl)
+ (public_name miaou.demo-sdl)
+ (package miaou)
+ (modules main_sdl)
+ (libraries gallery miaou.runner.native miaou.helpers eio_main))
