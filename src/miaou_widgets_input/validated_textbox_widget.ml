@@ -69,7 +69,8 @@ let render t ~focus =
       colored_base ^ "\n" ^ red ("⚠ " ^ error_display)
 
 let handle_key t ~key =
-  (* First, check if any pending validation should run now *)
+  (* Check if pending validation should run (debounce period elapsed).
+     This is safe because tick only validates when enough time has passed. *)
   let t = tick t in
   let updated_textbox = Textbox_widget.handle_key t.textbox ~key in
   let text_changed =

@@ -66,7 +66,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
            let sigwinch = 28 in
            Sys.set_signal
              sigwinch
-             (Sys.Signal_handle (fun _ ->
+             (Sys.Signal_handle
+                (fun _ ->
                   Term_size_detection.invalidate_cache () ;
                   Atomic.set resize_pending true))
          with _ -> ()) ;
@@ -314,144 +315,27 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           | Eio.Cancel.Cancelled _ -> 0
         in
 
-        (* ASCII keycodes as named constants for clarity *)
-        let esc_keycode = 27 in
-        let tab_keycode = 9 in
-        let backspace_keycode = 127 in
-
-        (* Parse a key from a buffer string without consuming it.
-       
-       This shared parsing logic is used by both peek_next_key (non-consuming)
-       and read_key_blocking (consuming). Returns None if the buffer is empty
-       or contains an incomplete escape sequence.
-       
-       Handles:
-       - Simple keys (Tab, Enter, Backspace, printable chars, Ctrl+letter)
-       - ESC sequences for arrow keys (ESC [ A/B/C/D and ESC O A/B/C/D)
-       - Mouse events (SGR and X10 formats)
-       - Special sequences (Delete: ESC [ 3 ~)
-       
-       Note: This only *parses*, it does not consume bytes from the buffer. *)
-        let parse_key_from_buffer buffer =
-          if String.length buffer = 0 then None
-          else
-            let first = String.get buffer 0 in
-            if Char.code first <> esc_keycode then
-              (* Simple non-ESC key *)
-              if first = '\000' then Some `Refresh
-              else if first = '\n' || first = '\r' then Some `Enter
-              else if Char.code first = tab_keycode then Some `NextPage
-              else if Char.code first = backspace_keycode then
-                Some (`Other "Backspace")
-              else
-                let code = Char.code first in
-                if code >= 1 && code <= 26 then
-                  (* Ctrl+letter: code 1='a', 2='b', etc. *)
-                  let letter = Char.chr (code + 96) in
-                  Some (`Other ("C-" ^ String.make 1 letter))
-                else Some (`Other (String.make 1 first))
+        (* Drain pending printable characters from the input buffer.
+           Used by textbox widgets to process all buffered chars at once. *)
+        let drain_pending_printable () =
+          ignore (refill 0.0) ;
+          let rec collect acc =
+            if String.length !pending = 0 then List.rev acc
             else
-              (* ESC sequence - need at least 3 chars for complete arrow keys *)
-              let len = String.length buffer in
-              if len >= 3 && String.get buffer 1 = '[' then
-                let code = String.get buffer 2 in
-                match code with
-                | '<' ->
-                    (* Mouse event (SGR format): needs more complex parsing *)
-                    Some (`Other "")
-                | 'M' ->
-                    (* Mouse event (X10 format): needs more bytes *)
-                    Some (`Other "")
-                | 'A' -> Some `Up
-                | 'B' -> Some `Down
-                | 'C' -> Some `Right
-                | 'D' -> Some `Left
-                | '3' ->
-                    (* Delete key: ESC [ 3 ~ *)
-                    if len >= 4 && String.get buffer 3 = '~' then
-                      Some (`Other "Delete")
-                    else Some (`Other "3")
-                | _ -> Some (`Other (String.make 1 code))
-              else if len >= 3 && String.get buffer 1 = 'O' then
-                let code = String.get buffer 2 in
-                match code with
-                | 'A' -> Some `Up
-                | 'B' -> Some `Down
-                | 'C' -> Some `Right
-                | 'D' -> Some `Left
-                | _ -> Some (`Other (String.make 1 code))
-              else if len = 1 then
-                (* Just ESC alone *)
-                Some (`Other "Esc")
-              else
-                (* Incomplete ESC sequence *)
-                None
-        in
-
-        (* Helper: Parse the next key from pending buffer without consuming it.
-       Returns None if buffer is empty or incomplete sequence. *)
-        let peek_next_key () = parse_key_from_buffer !pending in
-
-        (* Drain consecutive identical navigation keys from the pending buffer.
-       
-       Problem: When users hold down arrow keys and release, the terminal's input
-       buffer may contain dozens of identical key events. Processing each one leads
-       to scroll lag - the UI continues scrolling for ~0.5s after key release.
-       
-       Solution: After receiving a navigation key (Up/Down/Left/Right/Tab),
-       check the pending buffer for additional identical keys and skip them. This
-       "coalescing" ensures we only process the final position, making the UI
-       feel responsive.
-       
-       Implementation: Uses peek_next_key to inspect without consuming, then manually
-       consumes the appropriate bytes (3 for ESC sequences, 1 for Tab, 4 for Delete).
-       Returns the count of drained keys for debug logging.
-       
-       Note: We use refill(0.0) with zero timeout to avoid blocking - only drain
-       what's already buffered, don't wait for more input.
-       
-       TODO: PrevPage (Shift-Tab) is defined in the key type but not currently
-       parsed by read_key_blocking. Consider adding support or documenting why
-       it's excluded (e.g., reserved for widget-level focus navigation). *)
-        let drain_consecutive_nav_keys current_key =
-          (* Determine bytes to consume for each navigation key type *)
-          let bytes_to_consume_for_key k =
-            match k with
-            | `Up | `Down | `Left | `Right ->
-                (* Arrow keys: ESC [ A/B/C/D or ESC O A/B/C/D - always 3 bytes *)
-                Some 3
-            | `NextPage ->
-                (* Tab is a single byte (ASCII 9) *)
-                Some 1
-            | `Other "Delete" ->
-                (* Delete: ESC [ 3 ~ - 4 bytes *)
-                Some 4
-            | _ -> None
+              let first = String.get !pending 0 in
+              let code = Char.code first in
+              (* Only drain printable chars (32-126) and backspace (127) *)
+              if (code >= 32 && code < 127) || code = 127 then (
+                pending := String.sub !pending 1 (String.length !pending - 1) ;
+                let k =
+                  if code = 127 then "Backspace" else String.make 1 first
+                in
+                collect (k :: acc))
+              else List.rev acc
           in
-          match bytes_to_consume_for_key current_key with
-          | None -> 0 (* Not a drainable navigation key *)
-          | Some bytes_per_key ->
-              let drained = ref 0 in
-              let rec drain_loop () =
-                (* Ensure any pending input is read into the buffer (non-blocking) *)
-                ignore (refill 0.0) ;
-                match peek_next_key () with
-                | Some next when next = current_key ->
-                    (* Found another identical key - consume it *)
-                    if String.length !pending >= bytes_per_key then (
-                      pending :=
-                        String.sub
-                          !pending
-                          bytes_per_key
-                          (String.length !pending - bytes_per_key) ;
-                      drained := !drained + 1 ;
-                      drain_loop ())
-                    else ()
-                | _ -> ()
-              in
-              drain_loop () ;
-              !drained
+          collect []
         in
+        Miaou_helpers.Input_drain.register drain_pending_printable ;
 
         (* Read next key or emit a periodic refresh tick when idle. *)
         let read_key_blocking () =
@@ -735,6 +619,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             | `Refresh -> (
                 (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
                 if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
+                (* Also tick any active modal so it can run its service_cycle *)
+                Modal_manager.tick () ;
                 let st' = Page.service_cycle st 0 in
                 match Page.next_page st' with
                 | Some page -> `SwitchTo page
@@ -800,19 +686,6 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                           clear_and_render st' key_stack ;
                           loop st' key_stack))
             | (`Up | `Down | `Left | `Right | `NextPage | `PrevPage) as k -> (
-                (* Drain consecutive identical navigation keys to prevent scroll lag.
-             When arrow keys are held down and released, the terminal buffer may
-             contain many identical events. Skip all but the last one. *)
-                let drained_count = drain_consecutive_nav_keys k in
-                (match Logger_capability.get () with
-                | Some logger when Sys.getenv_opt "MIAOU_DEBUG" = Some "1" ->
-                    if drained_count > 0 then
-                      logger.logf
-                        Debug
-                        (Printf.sprintf
-                           "NAV_KEY_DRAIN: drained %d consecutive events"
-                           drained_count)
-                | _ -> ()) ;
                 let key =
                   match k with
                   | `Up -> "Up"
