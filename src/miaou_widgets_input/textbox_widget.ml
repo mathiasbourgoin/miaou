@@ -58,7 +58,7 @@ let render st ~focus:(_ : bool) =
   let box = "[" ^ padded ^ "]" in
   match st.title with Some t -> titleize t ^ "\n" ^ box | None -> box
 
-let handle_key st ~key =
+let handle_single_key st ~key =
   match key with
   | "Backspace" ->
       if st.cursor > 0 then
@@ -89,6 +89,13 @@ let handle_key st ~key =
       let right = String.sub s st.cursor (String.length s - st.cursor) in
       {st with buf = left ^ k ^ right; cursor = st.cursor + 1}
   | _ -> st
+
+let handle_key st ~key =
+  (* First handle the current key *)
+  let st = handle_single_key st ~key in
+  (* Then drain and apply any buffered printable chars to avoid typing lag *)
+  let pending = Miaou_helpers.Input_drain.drain_pending_chars () in
+  List.fold_left (fun s k -> handle_single_key s ~key:k) st pending
 
 let is_cancelled t = t.cancelled
 

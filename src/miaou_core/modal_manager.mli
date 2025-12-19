@@ -57,6 +57,10 @@ val push :
 
 val handle_key : string -> unit
 
+(** Tick the top modal's service_cycle. Call this on refresh events
+    to allow modals to run periodic tasks like debounced validation. *)
+val tick : unit -> unit
+
 (** Convenience wrapper: push with sensible defaults.
 
     Automatically sets [commit_on:["Enter"]] and [cancel_on:["Esc"]].

@@ -104,6 +104,13 @@ let pop_top () =
   | [] -> ()
   | Frame _ :: rest_rev -> stack := List.rev rest_rev
 
+let tick () =
+  match List.rev !stack with
+  | [] -> ()
+  | Frame r :: _ ->
+      let module P = (val r.p : Tui_page.PAGE_SIG with type state = _) in
+      r.st <- P.service_cycle r.st 0
+
 let handle_key key =
   match List.rev !stack with
   | [] -> ()
