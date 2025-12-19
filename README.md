@@ -13,7 +13,7 @@ And like a cat, itâ€™s light, curious, and perfectly at home on your terminal. ð
 ## Project status & ownership
 
 - **Owner / maintainer:** Nomadic Labs (<contact@nomadic-labs.com>)
-- **Repository:** https://github.com/mathiasbourgoin/miaou
+- **Repository:** https://github.com/trilitech/miaou
 - **License:** MIT (SPDX: MIT)
 
 MIAOU is a high-quality, easy-to-use TUI foundation for OCaml applications (installers, dashboards, service consoles, etc.).
@@ -631,8 +631,8 @@ Further reading
 
 MIAOU is maintained by Nomadic Labs (<contact@nomadic-labs.com>).
 
-- **Repository:** https://github.com/mathiasbourgoin/miaou
-- **Issues:** https://github.com/mathiasbourgoin/miaou/issues
+- **Repository:** https://github.com/trilitech/miaou
+- **Issues:** https://github.com/trilitech/miaou/issues
 - **Contributing:** See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Global Keys API

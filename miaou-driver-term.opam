@@ -5,8 +5,8 @@ synopsis: "Miaou terminal driver"
 maintainer: ["Nomadic Labs <contact@nomadic-labs.com>"]
 authors: ["Nomadic Labs <contact@nomadic-labs.com>"]
 license: "MIT"
-homepage: "https://gitlab.com/mbourgoin/miaou"
-bug-reports: "https://gitlab.com/mbourgoin/miaou/-/issues"
+homepage: "https://github.com/trilitech/miaou"
+bug-reports: "https://github.com/trilitech/miaou/issues"
 depends: [
   "dune" {>= "3.15"}
   "miaou-core"

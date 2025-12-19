@@ -9,8 +9,8 @@
  (synopsis "Miaou core/widgets (no drivers, no SDL)")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   cohttp
   cohttp-eio
@@ -31,8 +31,8 @@
  (synopsis "Miaou terminal driver")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends miaou-core))
 
 (package
@@ -40,8 +40,8 @@
  (synopsis "Miaou SDL widget implementations")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   miaou-core
   tsdl))
@@ -51,8 +51,8 @@
  (synopsis "Miaou SDL driver")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   miaou-core
   miaou-widgets-display-sdl
@@ -65,8 +65,8 @@
  (synopsis "Miaou runner with backend selection")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends miaou-core miaou-driver-term)
  (depopts miaou-driver-sdl))
 
@@ -75,8 +75,8 @@
  (synopsis "Miaou TUI framework - terminal only (no SDL)")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (allow_empty)
  (depends
   miaou-core
@@ -88,8 +88,8 @@
  (synopsis "A TUI framework for OCaml (full install with SDL)")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
  (authors "Nomadic Labs <contact@nomadic-labs.com>")
- (homepage "https://gitlab.com/mbourgoin/miaou")
- (bug_reports "https://gitlab.com/mbourgoin/miaou/-/issues")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
  (depends
   miaou-core
   miaou-driver-term
