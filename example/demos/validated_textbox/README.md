@@ -54,10 +54,21 @@ if Vtextbox.is_valid box then submit ()
 - `has_pending_validation` to check if validation is in progress
 - `flush_validation` to force immediate validation
 
+## How Debouncing Works
+
+When you type rapidly, validation is deferred. On the next keystroke after the
+debounce period has elapsed, validation runs. This prevents expensive validators
+from running on every keystroke during rapid typing.
+
+Note: Validation is event-driven, so it runs on the next key event after the
+debounce period - not automatically after a timer. Call `tick` in your page's
+`refresh` function if you have a periodic refresh cycle, or use `flush_validation`
+before form submission.
+
 ## Demo
 
 This demo shows two textboxes side-by-side:
-- **Debounced (250ms)**: Smooth typing, validation runs after you stop
-- **Immediate (0ms)**: Noticeable lag with each keystroke
+- **Debounced (250ms)**: Smooth typing, validation runs after pause + next key
+- **Immediate (0ms)**: Validation runs on every keystroke (may lag with slow validators)
 
 Press Tab to switch focus between them and compare the typing experience.
