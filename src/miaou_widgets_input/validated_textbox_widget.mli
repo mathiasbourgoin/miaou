@@ -36,6 +36,12 @@ val open_centered :
   unit ->
   'a t
 
+(** Check if debounce period has elapsed and run pending validation.
+    Call this before [render] in your view function to update validation state.
+    Returns the widget unchanged if no validation is pending or debounce
+    period hasn't elapsed yet. *)
+val tick : 'a t -> 'a t
+
 val render : 'a t -> focus:bool -> string
 
 val handle_key : 'a t -> key:string -> 'a t

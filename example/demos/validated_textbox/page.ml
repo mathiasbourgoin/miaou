@@ -98,7 +98,13 @@ module Inner = struct
     | None -> s
 
   let move s _ = s
-  let refresh s = s
+
+  let refresh s =
+    (* Tick both boxes to check for pending validation on each refresh cycle *)
+    let box_debounced = Vtextbox.tick s.box_debounced in
+    let box_immediate = Vtextbox.tick s.box_immediate in
+    {s with box_debounced; box_immediate}
+
   let enter s = s
   let service_select s _ = s
   let service_cycle s _ = s

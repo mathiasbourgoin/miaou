@@ -44,8 +44,9 @@ let run_validation t =
   let validation_state = t.validator current_value in
   {t with validation_state; pending_validation = false}
 
-(* Check if debounce period has elapsed and run validation if needed *)
-let maybe_run_pending_validation t =
+(* Check if debounce period has elapsed and run validation if needed.
+   Call this before render to update the validation state. *)
+let tick t =
   if not t.pending_validation then t
   else
     let now = Unix.gettimeofday () in
@@ -53,8 +54,6 @@ let maybe_run_pending_validation t =
     if elapsed_ms >= float_of_int t.debounce_ms then run_validation t else t
 
 let render t ~focus =
-  (* Check for pending validation on each render *)
-  let t = maybe_run_pending_validation t in
   let base_render = Textbox_widget.render t.textbox ~focus in
   match t.validation_state with
   | Valid _ -> base_render
@@ -70,6 +69,8 @@ let render t ~focus =
       colored_base ^ "\n" ^ red ("⚠ " ^ error_display)
 
 let handle_key t ~key =
+  (* First, check if any pending validation should run now *)
+  let t = tick t in
   let updated_textbox = Textbox_widget.handle_key t.textbox ~key in
   let text_changed = Textbox_widget.value updated_textbox <> Textbox_widget.value t.textbox in
   if text_changed then
