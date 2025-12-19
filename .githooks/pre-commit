@@ -1,0 +1,17 @@
+#!/bin/sh
+# Pre-commit hook to ensure code is formatted with ocamlformat
+
+# Run dune fmt and check if there are any changes
+dune fmt 2>/dev/null
+
+# Check if dune fmt made any changes
+if ! git diff --quiet; then
+    echo "Error: Code is not properly formatted."
+    echo "Please run 'dune fmt' and stage the changes before committing."
+    echo ""
+    echo "Modified files:"
+    git diff --name-only
+    exit 1
+fi
+
+exit 0

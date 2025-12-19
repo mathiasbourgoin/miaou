@@ -49,6 +49,9 @@ make build
 
 # Run tests
 make test
+
+# Set up git hooks (recommended)
+git config core.hooksPath .githooks
 ```
 
 ### Useful Commands
@@ -125,9 +128,24 @@ We use `ocamlformat`. Run before committing:
 
 ```bash
 make fmt
+# or
+dune fmt
 ```
 
 The configuration is in `.ocamlformat`.
+
+### Git Hooks
+
+We provide pre-commit hooks to enforce formatting. Set them up with:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The pre-commit hook will:
+- Run `dune fmt` automatically
+- Block commits if files are not properly formatted
+- Show which files need formatting
 
 ### File Headers
 
