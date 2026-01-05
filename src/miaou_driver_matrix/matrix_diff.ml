@@ -17,9 +17,10 @@ let compute buffer =
   let cols = Matrix_buffer.cols buffer in
   let changes = ref [] in
 
-  (* Track current cursor position and style to minimize emissions *)
-  let cursor_row = ref 0 in
-  let cursor_col = ref 0 in
+  (* Track current cursor position and style to minimize emissions.
+     We use -1 to indicate "unknown" position, which forces MoveTo on first change. *)
+  let cursor_row = ref (-1) in
+  let cursor_col = ref (-1) in
   let current_style = ref Matrix_cell.default_style in
 
   (* Emit a change, prepending to list (we'll reverse at the end) *)
@@ -75,8 +76,9 @@ let compute_atomic buffer =
       let cols = Matrix_buffer.cols_unlocked buffer in
       let changes = ref [] in
 
-      let cursor_row = ref 0 in
-      let cursor_col = ref 0 in
+      (* Use -1 to indicate "unknown" cursor position, forcing MoveTo on first change *)
+      let cursor_row = ref (-1) in
+      let cursor_col = ref (-1) in
       let current_style = ref Matrix_cell.default_style in
 
       let emit change = changes := change :: !changes in
@@ -126,8 +128,9 @@ let compute_region buffer ~row ~col ~width ~height =
   let cols = Matrix_buffer.cols buffer in
   let changes = ref [] in
 
-  let cursor_row = ref 0 in
-  let cursor_col = ref 0 in
+  (* Use -1 to indicate "unknown" cursor position, forcing MoveTo on first change *)
+  let cursor_row = ref (-1) in
+  let cursor_col = ref (-1) in
   let current_style = ref Matrix_cell.default_style in
 
   let emit change = changes := change :: !changes in
