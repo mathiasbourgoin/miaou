@@ -135,15 +135,18 @@ type batch_ops = {
 }
 
 (* Execute a function with the buffer lock held - for batch operations.
-   If force_full_redraw is true, also clears the front buffer so all cells
-   appear changed - this is done atomically to avoid race conditions. *)
+   If force_full_redraw is true, invalidates the front buffer so all cells
+   appear changed - this is done atomically to avoid race conditions.
+   We use invalidate (sets char to \x00) rather than reset (sets to space)
+   because if the new content also has spaces, reset would compare equal
+   and no change would be emitted, leaving stale content on screen. *)
 let with_back_buffer ?(force_full_redraw = false) t f =
   with_lock t (fun () ->
-      (* If forcing full redraw, clear front buffer first (while holding lock) *)
+      (* If forcing full redraw, invalidate front buffer first (while holding lock) *)
       if force_full_redraw then
         for r = 0 to t.rows - 1 do
           for c = 0 to t.cols - 1 do
-            Matrix_cell.reset t.front.(r).(c)
+            Matrix_cell.invalidate t.front.(r).(c)
           done
         done ;
       let ops =
