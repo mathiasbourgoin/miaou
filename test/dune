@@ -254,3 +254,8 @@
  (name test_validated_textbox)
  (modules test_validated_textbox)
  (libraries alcotest miaou-core.widgets.input unix))
+
+(test
+ (name test_matrix_ansi_parser)
+ (modules test_matrix_ansi_parser)
+ (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
