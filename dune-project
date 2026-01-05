@@ -36,6 +36,18 @@
  (depends miaou-core))
 
 (package
+ (name miaou-driver-matrix)
+ (synopsis "Miaou high-performance terminal driver with diff rendering")
+ (maintainers "Nomadic Labs <contact@nomadic-labs.com>")
+ (authors "Nomadic Labs <contact@nomadic-labs.com>")
+ (homepage "https://github.com/trilitech/miaou")
+ (bug_reports "https://github.com/trilitech/miaou/issues")
+ (depends
+  miaou-core
+  eio
+  eio_main))
+
+(package
  (name miaou-widgets-display-sdl)
  (synopsis "Miaou SDL widget implementations")
  (maintainers "Nomadic Labs <contact@nomadic-labs.com>")

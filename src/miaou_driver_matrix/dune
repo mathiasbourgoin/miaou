@@ -1,0 +1,26 @@
+(library
+ (name miaou_driver_matrix)
+ (public_name miaou-driver-matrix.driver)
+ (modules
+  matrix_cell
+  matrix_buffer
+  matrix_diff
+  matrix_ansi_parser
+  matrix_ansi_writer
+  matrix_input
+  matrix_terminal
+  matrix_render_loop
+  matrix_config
+  matrix_driver)
+ (instrumentation
+  (backend bisect_ppx))
+ (libraries
+  miaou-core.core
+  miaou-core.helpers
+  miaou-core.driver-common
+  miaou-core.interfaces
+  miaou-core.internals
+  miaou-core.widgets.display
+  eio
+  eio_main
+  eio.unix))

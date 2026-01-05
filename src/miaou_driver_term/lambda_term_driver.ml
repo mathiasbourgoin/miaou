@@ -66,7 +66,8 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
            let sigwinch = 28 in
            Sys.set_signal
              sigwinch
-             (Sys.Signal_handle (fun _ ->
+             (Sys.Signal_handle
+                (fun _ ->
                   Term_size_detection.invalidate_cache () ;
                   Atomic.set resize_pending true))
          with _ -> ()) ;
