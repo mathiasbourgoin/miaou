@@ -236,7 +236,13 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           | Some name -> `SwitchTo name
           | None -> `SwitchTo "__BACK__"
         else
-          let state' = Page.handle_key state key ~size in
+          (* Try page keymap first (for keys like 'c', 'd', etc.) *)
+          let keymap = Page.keymap state in
+          let state' =
+            match List.find_opt (fun (k, _, _) -> k = key) keymap with
+            | Some (_, transformer, _) -> transformer state
+            | None -> Page.handle_key state key ~size
+          in
           check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Mouse (row, col) ->
         let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
