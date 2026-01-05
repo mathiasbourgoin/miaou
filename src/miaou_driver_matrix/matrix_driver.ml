@@ -202,6 +202,18 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         let state' = Page.service_cycle state 0 in
         check_navigation (Packed ((module Page), state')) tick_start
     | Matrix_input.Key key ->
+        (* Debug: log received key if MIAOU_DEBUG is set *)
+        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
+          let oc =
+            open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
+          in
+          Printf.fprintf
+            oc
+            "Key received: %S, modal_active=%b, has_modal=%b\n%!"
+            key
+            (Modal_manager.has_active ())
+            (Page.has_modal state) ;
+          close_out oc) ;
         let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
         (* Set modal size before handling keys *)
         Modal_manager.set_current_size rows cols ;
@@ -245,7 +257,18 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           check_navigation (Packed ((module Page), state')) tick_start
   and check_navigation packed tick_start =
     let (Packed ((module Page), state)) = packed in
-    match Page.next_page state with
+    let next = Page.next_page state in
+    (* Debug: log navigation if MIAOU_DEBUG is set *)
+    (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+       match next with
+       | Some name ->
+           let oc =
+             open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
+           in
+           Printf.fprintf oc "Navigation requested: %S\n%!" name ;
+           close_out oc
+       | None -> ()) ;
+    match next with
     | Some "__QUIT__" ->
         Matrix_render_loop.shutdown render_loop ;
         `Quit
