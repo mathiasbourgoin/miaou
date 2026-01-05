@@ -26,6 +26,32 @@ let () = Random.self_init ()
 
 let available = true
 
+(* Debug overlay - shows FPS/TPS when MIAOU_OVERLAY is set *)
+let overlay_enabled =
+  lazy
+    (match Sys.getenv_opt "MIAOU_OVERLAY" with
+    | Some ("1" | "true" | "TRUE" | "yes" | "YES") -> true
+    | _ -> false)
+
+type fps_tracker = {
+  mutable frame_count : int;
+  mutable last_time : float;
+  mutable current_fps : float;
+}
+
+let create_fps_tracker () =
+  {frame_count = 0; last_time = Unix.gettimeofday (); current_fps = 0.0}
+
+let update_fps tracker =
+  tracker.frame_count <- tracker.frame_count + 1 ;
+  let now = Unix.gettimeofday () in
+  let elapsed = now -. tracker.last_time in
+  if elapsed >= 1.0 then begin
+    tracker.current_fps <- float_of_int tracker.frame_count /. elapsed ;
+    tracker.frame_count <- 0 ;
+    tracker.last_time <- now
+  end
+
 type color = Colors.color
 
 (* TODO: Architecture improvement - GADT-Based Render Tree Abstraction
@@ -443,7 +469,7 @@ let keyname_of_scancode sc =
   | `Down -> Some "Down"
   | `Left -> Some "Left"
   | `Right -> Some "Right"
-  | `Tab -> Some "NextPage"
+  | `Tab -> Some "Tab"
   | `Backspace -> Some "Backspace"
   | `Escape -> Some "Esc"
   | `Delete -> Some "Delete"
@@ -499,8 +525,7 @@ let poll_event ~timeout_ms ~on_resize =
                    repeats for Esc/Enter/Space to avoid double firing. *)
                 let is_nav =
                   match k with
-                  | "Up" | "Down" | "Left" | "Right" | "Tab" | "NextPage" ->
-                      true
+                  | "Up" | "Down" | "Left" | "Right" | "Tab" -> true
                   | _ -> false
                 in
                 if repeat && not is_nav then loop () else Key k
@@ -569,9 +594,13 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
       in
       update_size () ;
 
+      (* FPS tracker for debug overlay *)
+      let fps_tracker = create_fps_tracker () in
+
       let render_and_draw (type s) (module P : PAGE_SIG with type state = s)
           (st : s) =
         let size = !size_ref in
+        update_fps fps_tracker ;
 
         (* Draw background FIRST, before any SDL chart rendering *)
         draw_background renderer cfg char_w char_h ;
@@ -611,6 +640,43 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
           ~clear:false (* Already cleared by draw_background above *)
           ~present:false
           (String.split_on_char '\n' text) ;
+
+        (* Render debug overlay if enabled *)
+        if Lazy.force overlay_enabled then begin
+          let overlay_text =
+            Printf.sprintf "sdl FPS:%.0f" fps_tracker.current_fps
+          in
+          let x = (size.cols - String.length overlay_text - 1) * char_w in
+          let y = 0 in
+          (* Render with dim gray color *)
+          let dim_gray = {Colors.r = 128; g = 128; b = 128; a = 255} in
+          ignore
+            (Sdl.set_render_draw_color
+               renderer
+               dim_gray.r
+               dim_gray.g
+               dim_gray.b
+               dim_gray.a) ;
+          match
+            Ttf.render_utf8_solid
+              font
+              overlay_text
+              (Sdl.Color.create ~r:128 ~g:128 ~b:128 ~a:255)
+          with
+          | Error _ -> ()
+          | Ok surface -> (
+              match Sdl.create_texture_from_surface renderer surface with
+              | Error _ -> Sdl.free_surface surface
+              | Ok texture ->
+                  let _, _, (w, h) =
+                    Result.get_ok (Sdl.query_texture texture)
+                  in
+                  let dst = Sdl.Rect.create ~x ~y ~w ~h in
+                  ignore (Sdl.render_copy renderer texture ~dst) ;
+                  Sdl.destroy_texture texture ;
+                  Sdl.free_surface surface)
+        end ;
+
         ignore (Sdl.render_present renderer)
       in
 
@@ -702,17 +768,35 @@ let run_with_sdl (initial_page : (module PAGE_SIG)) (cfg : config) :
                   loop (module Next) st_to
               | None -> `Quit
             else
+              let size = !size_ref in
               let st' =
+                (* Handle keys like lambda-term and matrix drivers:
+                   1. Modal_manager modals first
+                   2. Page-level modals (Page.has_modal)
+                   3. Enter -> Page.enter
+                   4. Esc -> Page.handle_key
+                   5. Navigation keys -> Page.handle_key
+                   6. Other keys -> keymap first, then handle_key *)
                 if Modal_manager.has_active () then (
                   Modal_manager.handle_key k ;
                   st)
+                else if P.has_modal st then P.handle_modal_key st k ~size
+                else if k = "Enter" then P.enter st
+                else if k = "Esc" || k = "Escape" then P.handle_key st k ~size
+                else if
+                  k = "Up" || k = "Down" || k = "Left" || k = "Right"
+                  || k = "Tab" || k = "Shift-Tab"
+                then P.handle_key st k ~size
+                else if k = "q" || k = "Q" then st
                 else
-                  match k with
-                  | "Up" -> P.move st (-1)
-                  | "Down" -> P.move st 1
-                  | "Enter" -> P.enter st
-                  | "q" | "Q" -> st
-                  | _ -> P.handle_key st k ~size:!size_ref
+                  (* Try keymap first, fall back to handle_key *)
+                  let keymap = P.keymap st in
+                  let keymap_match =
+                    List.find_opt (fun (key, _, _) -> key = k) keymap
+                  in
+                  match keymap_match with
+                  | Some (_, transformer, _) -> transformer st
+                  | None -> P.handle_key st k ~size
               in
               render_and_draw (module P) st' ;
               if k = "q" || k = "Q" then `Quit
