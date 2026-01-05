@@ -126,16 +126,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     (* Render page view to ANSI string *)
     let view_output = Page.view state ~focus:true ~size in
 
-    (* Check for modal state change - force full redraw on open/close.
-       We clear the terminal here to avoid artifacts; this causes brief flicker
-       but is necessary until we have smarter modal diff rendering. *)
+    (* Check for modal state change *)
     let modal_active = Modal_manager.has_active () in
     let modal_just_changed = modal_active <> !last_modal_active in
-    if modal_just_changed then begin
-      Matrix_terminal.write terminal "\027[2J\027[H" ;
-      Matrix_buffer.mark_all_dirty buffer ;
-      last_modal_active := modal_active
-    end ;
+    if modal_just_changed then last_modal_active := modal_active ;
 
     (* Render modal overlay if active *)
     let view_output =
@@ -151,15 +145,6 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         | None -> view_output
       else view_output
     in
-
-    (* Debug: dump final view_output after overlay when modal just opened *)
-    if
-      Sys.getenv_opt "MIAOU_DEBUG" = Some "1"
-      && modal_just_changed && modal_active
-    then (
-      let oc = open_out "/tmp/miaou-modal-with-overlay.ansi" in
-      output_string oc view_output ;
-      close_out oc) ;
 
     (* Update TPS tracker *)
     update_tps tps_tracker ;
@@ -188,6 +173,14 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             ~tps:tps_tracker.current_tps
             ~cols
             ops) ;
+
+    (* On modal OPEN, do synchronous clear+render to avoid overlay artifacts.
+       On modal CLOSE, just let diff handle it - no clear needed. *)
+    if modal_just_changed && modal_active then begin
+      Matrix_buffer.mark_all_dirty buffer ;
+      Matrix_terminal.write terminal "\027[2J\027[H" ;
+      Matrix_render_loop.force_render render_loop
+    end ;
 
     (* Poll for input with short timeout to maintain TPS *)
     let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
