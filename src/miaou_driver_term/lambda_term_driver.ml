@@ -478,8 +478,9 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
               Miaou_helpers.Render_notify.should_render ()
             then `Refresh
             else (
-              (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages. *)
-              if String.length !pending = 0 then ignore (refill 0.15) ;
+              (* Ensure at least one byte: wait a short time; if none, emit a refresh tick to drive pages.
+                 Use ~33ms timeout for 30 TPS refresh rate. *)
+              if String.length !pending = 0 then ignore (refill 0.033) ;
               if String.length !pending = 0 then
                 (* Inject a synthetic refresh marker into the pending buffer to signal an idle tick. *)
                 pending := "\000" ^ !pending ;
