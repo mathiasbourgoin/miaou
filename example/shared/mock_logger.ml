@@ -4,9 +4,12 @@
 (* Copyright (c) 2025 Nomadic Labs <contact@nomadic-labs.com>                *)
 (*                                                                           *)
 (*****************************************************************************)
-(* Mock Logger implementation for examples and tests. *)
+(* Mock Logger implementation for examples and tests.
+   This is a no-op logger - it discards all log messages to avoid
+   corrupting the TUI display. For actual logging in demos, use the
+   Logger_demo which writes to a file. *)
 
-let logf _lvl s = Printf.printf "%s\n" s
+let logf _lvl _s = ()
 
 let set_enabled _ = ()
 
