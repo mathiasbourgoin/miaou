@@ -98,3 +98,24 @@ type batch_ops = {
 (** Execute function with buffer lock held. Marks dirty after.
     The callback receives [batch_ops] for safe unlocked access. *)
 val with_back_buffer : t -> (batch_ops -> 'a) -> 'a
+
+(** {2 Atomic Read Operations (for render domain)} *)
+
+(** Execute a read operation with the buffer lock held.
+    Use this for atomic diff computation to prevent torn reads. *)
+val with_read_lock : t -> (unit -> 'a) -> 'a
+
+(** Get front cell without locking - use inside [with_read_lock]. *)
+val get_front_unlocked : t -> row:int -> col:int -> Matrix_cell.t
+
+(** Get back cell without locking - use inside [with_read_lock]. *)
+val get_back_unlocked : t -> row:int -> col:int -> Matrix_cell.t
+
+(** Get rows without locking - use inside [with_read_lock]. *)
+val rows_unlocked : t -> int
+
+(** Get cols without locking - use inside [with_read_lock]. *)
+val cols_unlocked : t -> int
+
+(** Swap buffers without locking - use inside [with_read_lock]. *)
+val swap_unlocked : t -> unit

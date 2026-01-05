@@ -25,18 +25,18 @@ let do_render t =
   Matrix_terminal.write t.terminal "\027[0m" ;
   Matrix_ansi_writer.reset t.writer ;
 
-  (* Compute diff - buffer operations are thread-safe *)
-  let changes = Matrix_diff.compute t.buffer in
+  (* Compute diff atomically - holds lock during read to prevent torn reads.
+     This also swaps the buffers while holding the lock. *)
+  let changes = Matrix_diff.compute_atomic t.buffer in
+
+  (* Clear dirty flag after atomic read+swap *)
+  Matrix_buffer.clear_dirty t.buffer ;
 
   (* Generate ANSI output *)
   let ansi = Matrix_ansi_writer.render t.writer changes in
 
   (* Write to terminal *)
   if String.length ansi > 0 then Matrix_terminal.write t.terminal ansi ;
-
-  (* Swap buffers and clear dirty flag *)
-  Matrix_buffer.swap t.buffer ;
-  Matrix_buffer.clear_dirty t.buffer ;
 
   (* Update frame timing *)
   let now = Unix.gettimeofday () in

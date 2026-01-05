@@ -169,3 +169,23 @@ let with_back_buffer t f =
       let result = f ops in
       Atomic.set t.dirty true ;
       result)
+
+(* Execute a read operation with the buffer lock held - for atomic diff computation *)
+let with_read_lock t f = with_lock t f
+
+(* Get front and back cells without locking - for use inside with_read_lock *)
+let get_front_unlocked (t : t) ~row ~col =
+  if in_bounds t ~row ~col then t.front.(row).(col) else Matrix_cell.empty ()
+
+let get_back_unlocked (t : t) ~row ~col =
+  if in_bounds t ~row ~col then t.back.(row).(col) else Matrix_cell.empty ()
+
+let rows_unlocked (t : t) = t.rows
+
+let cols_unlocked (t : t) = t.cols
+
+(* Swap without locking - for use inside with_read_lock after diff *)
+let swap_unlocked (t : t) =
+  let tmp = t.front in
+  t.front <- t.back ;
+  t.back <- tmp
