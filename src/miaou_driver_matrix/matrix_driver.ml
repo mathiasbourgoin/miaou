@@ -127,18 +127,18 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     let view_output = Page.view state ~focus:true ~size in
 
     (* Check for modal state change - force full redraw on open/close *)
-    (* TODO: Investigate why diff-based rendering causes artifacts during modal
-       transitions. Without the terminal clear, the page title gets duplicated
-       in other rows when opening a modal. The mark_all_dirty alone should be
-       sufficient but isn't. Possible causes:
-       - ANSI parser mishandling overlay output
-       - Diff algorithm edge case with styled content
-       - Race condition between main and render domains
-       Once fixed, remove the terminal clear to eliminate flicker. *)
     let modal_active = Modal_manager.has_active () in
-    if modal_active <> !last_modal_active then begin
-      (* WORKAROUND: Clear terminal to remove artifacts during modal transitions *)
-      Matrix_terminal.write terminal "\027[2J\027[H" ;
+    let modal_just_changed = modal_active <> !last_modal_active in
+    if modal_just_changed then begin
+      (* Debug: dump view_output to file when modal state changes *)
+      if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
+        let filename =
+          if modal_active then "/tmp/miaou-modal-open-base.ansi"
+          else "/tmp/miaou-modal-close.ansi"
+        in
+        let oc = open_out filename in
+        output_string oc view_output ;
+        close_out oc) ;
       Matrix_buffer.mark_all_dirty buffer ;
       last_modal_active := modal_active
     end ;
@@ -157,6 +157,15 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
         | None -> view_output
       else view_output
     in
+
+    (* Debug: dump final view_output after overlay when modal just opened *)
+    if
+      Sys.getenv_opt "MIAOU_DEBUG" = Some "1"
+      && modal_just_changed && modal_active
+    then (
+      let oc = open_out "/tmp/miaou-modal-with-overlay.ansi" in
+      output_string oc view_output ;
+      close_out oc) ;
 
     (* Update TPS tracker *)
     update_tps tps_tracker ;
