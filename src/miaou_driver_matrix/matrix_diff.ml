@@ -11,7 +11,7 @@ type change =
   | WriteChar of string
   | WriteRun of string * int
 
-(* Compute diff between front and back buffers *)
+(* Compute diff between front and back buffers - NOT thread-safe, use compute_atomic *)
 let compute buffer =
   let rows = Matrix_buffer.rows buffer in
   let cols = Matrix_buffer.cols buffer in
@@ -67,6 +67,58 @@ let compute buffer =
 
   (* Return changes in correct order *)
   List.rev !changes
+
+(* Compute diff atomically with buffer lock held - thread-safe for two-domain architecture *)
+let compute_atomic buffer =
+  Matrix_buffer.with_read_lock buffer (fun () ->
+      let rows = Matrix_buffer.rows_unlocked buffer in
+      let cols = Matrix_buffer.cols_unlocked buffer in
+      let changes = ref [] in
+
+      let cursor_row = ref 0 in
+      let cursor_col = ref 0 in
+      let current_style = ref Matrix_cell.default_style in
+
+      let emit change = changes := change :: !changes in
+
+      let move_to row col =
+        if row <> !cursor_row || col <> !cursor_col then begin
+          emit (MoveTo (row, col)) ;
+          cursor_row := row ;
+          cursor_col := col
+        end
+      in
+
+      let set_style style =
+        if not (Matrix_cell.style_equal style !current_style) then begin
+          emit (SetStyle style) ;
+          current_style := style
+        end
+      in
+
+      let write_char char =
+        emit (WriteChar char) ;
+        incr cursor_col ;
+        if !cursor_col >= cols then cursor_col := cols - 1
+      in
+
+      for row = 0 to rows - 1 do
+        for col = 0 to cols - 1 do
+          let front = Matrix_buffer.get_front_unlocked buffer ~row ~col in
+          let back = Matrix_buffer.get_back_unlocked buffer ~row ~col in
+
+          if not (Matrix_cell.equal front back) then begin
+            move_to row col ;
+            set_style back.style ;
+            write_char back.char
+          end
+        done
+      done ;
+
+      (* Swap buffers while still holding the lock *)
+      Matrix_buffer.swap_unlocked buffer ;
+
+      List.rev !changes)
 
 (* Compute diff for a specific region *)
 let compute_region buffer ~row ~col ~width ~height =

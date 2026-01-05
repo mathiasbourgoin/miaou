@@ -23,8 +23,15 @@ type change =
   | WriteRun of string * int  (** Write character repeated N times *)
 
 (** Compute diff between front (displayed) and back (new) buffers.
-    Returns list of changes to transform front into back. *)
+    Returns list of changes to transform front into back.
+    NOT thread-safe - use [compute_atomic] for two-domain architecture. *)
 val compute : Matrix_buffer.t -> change list
+
+(** Compute diff atomically with buffer lock held.
+    Thread-safe for two-domain architecture. Also swaps buffers
+    while holding the lock to prevent torn reads.
+    Use this from the render domain. *)
+val compute_atomic : Matrix_buffer.t -> change list
 
 (** Compute diff for a specific region of the buffer. *)
 val compute_region :
