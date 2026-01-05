@@ -55,6 +55,8 @@ let backend_choice ~sdl_available ~matrix_available =
 let run ~term_backend ~sdl_backend ~matrix_backend
     (initial_page : (module PAGE_SIG)) : outcome =
   Widgets.set_backend `Terminal ;
+  (* Page stack for __BACK__ navigation *)
+  let page_stack = ref [] in
   let rec loop (page : (module PAGE_SIG)) : outcome =
     let outcome =
       match
@@ -77,9 +79,18 @@ let run ~term_backend ~sdl_backend ~matrix_backend
     in
     match outcome with
     | `Quit -> `Quit
-    | `SwitchTo "__BACK__" -> `Quit
+    | `SwitchTo "__BACK__" -> (
+        match !page_stack with
+        | [] -> `Quit (* No history, quit *)
+        | prev :: rest ->
+            page_stack := rest ;
+            loop prev)
     | `SwitchTo next -> (
-        match Registry.find next with Some p -> loop p | None -> `Quit)
+        match Registry.find next with
+        | Some p ->
+            page_stack := page :: !page_stack ;
+            loop p
+        | None -> `Quit)
   in
   let _result = loop initial_page in
   (* Shutdown fibers and exit to avoid Eio.Switch.run waiting for them *)
