@@ -102,7 +102,7 @@
   alcotest
   miaou-driver-term.driver
   miaou-driver-sdl.driver
-  miaou-runner.common))
+  miaou-core.runner-common))
 
 (test
  (name test_core_utils)
