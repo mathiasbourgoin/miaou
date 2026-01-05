@@ -41,6 +41,13 @@ val copy : t -> t
 (** Reset a cell to empty state (space with default style). *)
 val reset : t -> unit
 
+(** Invalidate a cell so it never equals any valid cell.
+    Used for force-redraw scenarios where we need to ensure
+    the diff outputs changes even for cells that might otherwise
+    appear unchanged. Sets char to \x00 which never appears in
+    normal content. *)
+val invalidate : t -> unit
+
 (** Check if two styles are equal. *)
 val style_equal : style -> style -> bool
 

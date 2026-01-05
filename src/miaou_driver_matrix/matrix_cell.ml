@@ -36,6 +36,11 @@ let reset cell =
   cell.char <- " " ;
   cell.style <- default_style
 
+(* Invalidate a cell so it never equals any valid cell - used for force redraw *)
+let invalidate cell =
+  cell.char <- "\x00" ;
+  cell.style <- default_style
+
 let style_equal a b =
   a.fg = b.fg && a.bg = b.bg && a.bold = b.bold && a.dim = b.dim
   && a.underline = b.underline && a.reverse = b.reverse
