@@ -259,3 +259,8 @@
  (name test_matrix_ansi_parser)
  (modules test_matrix_ansi_parser)
  (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
+
+(test
+ (name test_matrix_diff)
+ (modules test_matrix_diff)
+ (libraries alcotest miaou-driver-matrix.driver miaou-core.widgets.display))
