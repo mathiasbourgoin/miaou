@@ -104,6 +104,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
   (* TPS tracker for debug overlay *)
   let tps_tracker = create_tps_tracker () in
 
+  (* Track modal state to trigger full redraw on modal open/close *)
+  let last_modal_active = ref false in
+
   (* Main loop - runs in main domain, handles input and effects *)
   let rec loop packed =
     let tick_start = Unix.gettimeofday () in
@@ -123,9 +126,26 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
     (* Render page view to ANSI string *)
     let view_output = Page.view state ~focus:true ~size in
 
+    (* Check for modal state change - force full redraw on open/close *)
+    (* TODO: Investigate why diff-based rendering causes artifacts during modal
+       transitions. Without the terminal clear, the page title gets duplicated
+       in other rows when opening a modal. The mark_all_dirty alone should be
+       sufficient but isn't. Possible causes:
+       - ANSI parser mishandling overlay output
+       - Diff algorithm edge case with styled content
+       - Race condition between main and render domains
+       Once fixed, remove the terminal clear to eliminate flicker. *)
+    let modal_active = Modal_manager.has_active () in
+    if modal_active <> !last_modal_active then begin
+      (* WORKAROUND: Clear terminal to remove artifacts during modal transitions *)
+      Matrix_terminal.write terminal "\027[2J\027[H" ;
+      Matrix_buffer.mark_all_dirty buffer ;
+      last_modal_active := modal_active
+    end ;
+
     (* Render modal overlay if active *)
     let view_output =
-      if Modal_manager.has_active () then
+      if modal_active then
         match
           Miaou_internals.Modal_renderer.render_overlay
             ~cols:(Some cols)
