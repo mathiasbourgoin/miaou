@@ -1,6 +1,6 @@
 (library
  (name miaou_runner_common)
- (public_name miaou-runner.common)
+ (public_name miaou-core.runner-common)
  (modules tui_driver_common html_driver runner_cli)
  (instrumentation
   (backend bisect_ppx))

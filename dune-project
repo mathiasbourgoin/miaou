@@ -68,6 +68,8 @@
  (depends
   miaou-core
   miaou-widgets-display-sdl
+  miaou-driver-term
+  miaou-driver-matrix
   tsdl
   tsdl-ttf
   tsdl-image))
