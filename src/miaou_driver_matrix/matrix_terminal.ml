@@ -82,6 +82,12 @@ let disable_mouse t =
 let cleanup t =
   if not t.cleanup_done then begin
     t.cleanup_done <- true ;
+    (* Clear screen, move cursor home, show cursor, reset style *)
+    let cleanup_seq = "\027[2J\027[H\027[?25h\027[0m\n" in
+    (try
+       print_string cleanup_seq ;
+       Stdlib.flush stdout
+     with _ -> ()) ;
     leave_raw t
   end ;
   disable_mouse t

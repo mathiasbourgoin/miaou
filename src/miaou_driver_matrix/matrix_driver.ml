@@ -212,6 +212,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           let state' = Page.service_cycle state 0 in
           check_navigation (Packed ((module Page), state')) tick_start
         end
+        else if Page.has_modal state then
+          (* Page has its own modal - use page's modal key handler *)
+          let state' = Page.handle_modal_key state key ~size in
+          check_navigation (Packed ((module Page), state')) tick_start
         else if key = "Esc" || key = "Escape" then
           (* Special handling for Escape: let page handle it first,
              if no navigation requested, go back *)
@@ -232,6 +236,10 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
           let state' = Page.service_cycle state 0 in
           check_navigation (Packed ((module Page), state')) tick_start
         end
+        else if Page.has_modal state then
+          (* Page has its own modal - use page's modal key handler *)
+          let state' = Page.handle_modal_key state mouse_key ~size in
+          check_navigation (Packed ((module Page), state')) tick_start
         else
           let state' = Page.handle_key state mouse_key ~size in
           check_navigation (Packed ((module Page), state')) tick_start
