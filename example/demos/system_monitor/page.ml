@@ -243,7 +243,7 @@ module Inner = struct
     let hint =
       W.dim
         (Printf.sprintf
-           "Auto-updating every ~150ms • b toggle Braille (%s) • t tutorial • \
+           "Auto-updating at ~30 TPS • b toggle Braille (%s) • t tutorial • \
             Esc to return"
            mode_label)
     in
