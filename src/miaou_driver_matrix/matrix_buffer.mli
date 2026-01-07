@@ -72,6 +72,11 @@ val cell_changed : t -> row:int -> col:int -> bool
     Thread-safe. *)
 val mark_all_dirty : t -> unit
 
+(** Mark a region of cells as needing redraw.
+    Thread-safe. Used for partial refresh and modal regions. *)
+val mark_region_dirty :
+  t -> row_start:int -> row_end:int -> col_start:int -> col_end:int -> unit
+
 (** {2 Dirty Flag (for render domain)} *)
 
 (** Mark buffer as needing render. *)
