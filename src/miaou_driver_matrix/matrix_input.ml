@@ -49,6 +49,7 @@ let poll t ~timeout_ms =
     Matrix_terminal.clear_resize_pending t.terminal ;
     Resize
   end
+  else if Miaou_helpers.Render_notify.should_render () then Refresh
   else begin
     (* Try to read input *)
     if Parser.pending_length t.parser = 0 then begin

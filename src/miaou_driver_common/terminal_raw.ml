@@ -15,6 +15,9 @@ type t = {
   mutable cached_size : (int * int) option;
   mutable cleanup_done : bool;
   resize_pending : bool Atomic.t;
+  (* Save original stdout/stderr to restore on cleanup *)
+  orig_stdout : Unix.file_descr;
+  orig_stderr : Unix.file_descr;
 }
 
 let setup () =
@@ -28,6 +31,9 @@ let setup () =
     try Unix.openfile "/dev/tty" [Unix.O_WRONLY] 0
     with _ -> Unix.descr_of_out_channel stdout
   in
+  (* Save original stdout/stderr file descriptors for restoration later *)
+  let orig_stdout = Unix.dup Unix.stdout in
+  let orig_stderr = Unix.dup Unix.stderr in
   {
     fd;
     tty_out_fd;
@@ -35,6 +41,8 @@ let setup () =
     cached_size = None;
     cleanup_done = false;
     resize_pending = Atomic.make false;
+    orig_stdout;
+    orig_stderr;
   }
 
 let fd t = t.fd
@@ -42,7 +50,7 @@ let fd t = t.fd
 let enter_raw t =
   match t.orig_termios with
   | None -> ()
-  | Some orig ->
+  | Some orig -> (
       let raw =
         {
           orig with
@@ -52,9 +60,33 @@ let enter_raw t =
           Unix.c_vtime = 0;
         }
       in
-      Unix.tcsetattr t.fd Unix.TCSANOW raw
+      Unix.tcsetattr t.fd Unix.TCSANOW raw ;
+      (* Redirect stdout/stderr to /dev/null to prevent system commands
+         from printing directly to the terminal while TUI is active *)
+      try
+        let devnull = Unix.openfile "/dev/null" [Unix.O_WRONLY] 0 in
+        Unix.dup2 devnull Unix.stdout ;
+        Unix.dup2 devnull Unix.stderr ;
+        Unix.close devnull
+      with _ -> (
+        () ;
+        (* Enter alternate screen mode *)
+        try
+          let alt_seq = "\027[?1049h" in
+          ignore
+            (Unix.write
+               t.tty_out_fd
+               (Bytes.of_string alt_seq)
+               0
+               (String.length alt_seq))
+        with _ -> ()))
 
 let leave_raw t =
+  (* Restore stdout/stderr before leaving raw mode so cleanup messages can be seen *)
+  (try
+     Unix.dup2 t.orig_stdout Unix.stdout ;
+     Unix.dup2 t.orig_stderr Unix.stderr
+   with _ -> ()) ;
   match t.orig_termios with
   | None -> ()
   | Some orig -> ( try Unix.tcsetattr t.fd Unix.TCSANOW orig with _ -> ())
@@ -100,13 +132,17 @@ let cleanup t =
   if not t.cleanup_done then begin
     t.cleanup_done <- true ;
     (* Clear screen, move cursor home, show cursor, reset style *)
-    let cleanup_seq = "\027[2J\027[H\027[?25h\027[0m\n" in
+    (* Also exit alt screen mode to prevent terminal pollution *)
+    let cleanup_seq = "\027[2J\027[H\027[?1049l\027[?25h\027[0m\n" in
     (try
        print_string cleanup_seq ;
        Stdlib.flush stdout
      with _ -> ()) ;
     (* Terminal restore - must happen before mouse disable *)
-    leave_raw t
+    leave_raw t ;
+    (* Close saved file descriptors *)
+    (try Unix.close t.orig_stdout with _ -> ()) ;
+    try Unix.close t.orig_stderr with _ -> ()
   end ;
   (* THEN disable mouse tracking - terminal is now in normal mode *)
   disable_mouse t
