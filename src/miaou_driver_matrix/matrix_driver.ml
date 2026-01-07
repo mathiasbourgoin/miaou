@@ -60,266 +60,280 @@ type packed_state =
       (module Tui_page.PAGE_SIG with type state = 's) * 's
       -> packed_state
 
+module Fibers = Miaou_helpers.Fiber_runtime
+
+let eio_sleep env seconds =
+  if seconds > 0.001 then Eio.Time.sleep env#clock seconds
+
 let run (initial_page : (module Tui_page.PAGE_SIG)) :
     [`Quit | `SwitchTo of string] =
-  (* Load configuration *)
-  let config = Matrix_config.load () in
-  let tick_time_s = config.tick_time_ms /. 1000.0 in
+  Fibers.with_page_switch (fun env _page_sw ->
+      (* Load configuration *)
+      let config = Matrix_config.load () in
+      let tick_time_s = config.tick_time_ms /. 1000.0 in
 
-  (* Setup terminal *)
-  let terminal = Matrix_terminal.setup () in
-  at_exit (fun () -> Matrix_terminal.cleanup terminal) ;
+      (* Setup terminal *)
+      let terminal = Matrix_terminal.setup () in
+      at_exit (fun () -> Matrix_terminal.cleanup terminal) ;
 
-  (* Get terminal size *)
-  let rows, cols = Matrix_terminal.size terminal in
+      (* Get terminal size *)
+      let rows, cols = Matrix_terminal.size terminal in
 
-  (* Create buffer *)
-  let buffer = Matrix_buffer.create ~rows ~cols in
+      (* Create buffer *)
+      let buffer = Matrix_buffer.create ~rows ~cols in
 
-  (* Create parser and writer *)
-  let parser = Matrix_ansi_parser.create () in
-  let writer = Matrix_ansi_writer.create () in
+      (* Create parser and writer *)
+      let parser = Matrix_ansi_parser.create () in
+      let writer = Matrix_ansi_writer.create () in
 
-  (* Create input handler *)
-  let input = Matrix_input.create terminal in
+      (* Create input handler *)
+      let input = Matrix_input.create terminal in
 
-  (* Create render loop *)
-  let render_loop =
-    Matrix_render_loop.create ~config ~buffer ~writer ~terminal
-  in
+      (* Create render loop *)
+      let render_loop =
+        Matrix_render_loop.create ~config ~buffer ~writer ~terminal
+      in
 
-  (* Enter raw mode and enable mouse *)
-  Matrix_terminal.enter_raw terminal ;
-  Matrix_terminal.enable_mouse terminal ;
+      (* Enter raw mode and enable mouse *)
+      Matrix_terminal.enter_raw terminal ;
+      Matrix_terminal.enable_mouse terminal ;
 
-  (* Hide cursor *)
-  Matrix_terminal.write terminal Matrix_ansi_writer.cursor_hide ;
+      (* Hide cursor *)
+      Matrix_terminal.write terminal Matrix_ansi_writer.cursor_hide ;
 
-  (* Clear screen initially *)
-  Matrix_terminal.write terminal "\027[2J\027[H" ;
+      (* Clear screen initially *)
+      Matrix_terminal.write terminal "\027[2J\027[H" ;
 
-  (* Start render domain - runs at 60 FPS in parallel *)
-  Matrix_render_loop.start render_loop ;
+      (* Start render domain - runs at 60 FPS in parallel *)
+      Matrix_render_loop.start render_loop ;
 
-  (* TPS tracker for debug overlay *)
-  let tps_tracker = create_tps_tracker () in
+      (* TPS tracker for debug overlay *)
+      let tps_tracker = create_tps_tracker () in
 
-  (* Track modal state to trigger full redraw on modal open/close *)
-  let last_modal_active = ref false in
+      (* Track modal state to trigger full redraw on modal open/close *)
+      let last_modal_active = ref false in
 
-  (* Main loop - runs in main domain, handles input and effects *)
-  let rec loop packed =
-    let tick_start = Unix.gettimeofday () in
-    let (Packed ((module Page), state)) = packed in
+      (* Main loop - runs in main domain, handles input and effects *)
+      let rec loop packed =
+        let tick_start = Unix.gettimeofday () in
+        let (Packed ((module Page), state)) = packed in
 
-    (* Get current terminal size *)
-    let rows, cols = Matrix_terminal.size terminal in
-    let size = {LTerm_geom.rows; cols} in
+        (* Get current terminal size *)
+        let rows, cols = Matrix_terminal.size terminal in
+        let size = {LTerm_geom.rows; cols} in
 
-    (* Check if we need to resize buffer *)
-    let buf_rows, buf_cols = Matrix_buffer.size buffer in
-    if rows <> buf_rows || cols <> buf_cols then begin
-      Matrix_buffer.resize buffer ~rows ~cols ;
-      Matrix_buffer.mark_all_dirty buffer
-    end ;
+        (* Check if we need to resize buffer *)
+        let buf_rows, buf_cols = Matrix_buffer.size buffer in
+        if rows <> buf_rows || cols <> buf_cols then begin
+          Matrix_buffer.resize buffer ~rows ~cols ;
+          Matrix_buffer.mark_all_dirty buffer
+        end ;
 
-    (* Render page view to ANSI string *)
-    let view_output = Page.view state ~focus:true ~size in
+        (* Render page view to ANSI string *)
+        let view_output = Page.view state ~focus:true ~size in
 
-    (* Check for modal state change *)
-    let modal_active = Modal_manager.has_active () in
-    let modal_just_changed = modal_active <> !last_modal_active in
-    if modal_just_changed then last_modal_active := modal_active ;
+        (* Check for modal state change *)
+        let modal_active = Modal_manager.has_active () in
+        let modal_just_changed = modal_active <> !last_modal_active in
+        if modal_just_changed then last_modal_active := modal_active ;
 
-    (* Render modal overlay if active *)
-    let view_output =
-      if modal_active then
-        match
-          Miaou_internals.Modal_renderer.render_overlay
-            ~cols:(Some cols)
-            ~base:view_output
-            ~rows
-            ()
-        with
-        | Some v -> v
-        | None -> view_output
-      else view_output
-    in
-
-    (* Update TPS tracker *)
-    update_tps tps_tracker ;
-
-    (* Update back buffer with new view - thread-safe batch operation *)
-    Matrix_buffer.with_back_buffer buffer (fun ops ->
-        (* Clear back buffer *)
-        ops.clear () ;
-
-        (* Parse ANSI output into buffer using batch set_char *)
-        Matrix_ansi_parser.reset parser ;
-        let _ =
-          Matrix_ansi_parser.parse_into_batch
-            parser
-            ops
-            ~row:0
-            ~col:0
-            view_output
+        (* Render modal overlay if active *)
+        let view_output =
+          if modal_active then
+            match
+              Miaou_internals.Modal_renderer.render_overlay
+                ~cols:(Some cols)
+                ~base:view_output
+                ~rows
+                ()
+            with
+            | Some v -> v
+            | None -> view_output
+          else view_output
         in
 
-        (* Render debug overlay if enabled *)
-        if Lazy.force overlay_enabled then
-          render_overlay_text
-            ~loop_fps:(Matrix_render_loop.loop_fps render_loop)
-            ~render_fps:(Matrix_render_loop.current_fps render_loop)
-            ~tps:tps_tracker.current_tps
-            ~cols
-            ops) ;
+        (* Update TPS tracker *)
+        update_tps tps_tracker ;
 
-    (* On modal OPEN, do synchronous clear+render to avoid overlay artifacts.
+        (* Update back buffer with new view - thread-safe batch operation *)
+        Matrix_buffer.with_back_buffer buffer (fun ops ->
+            (* Clear back buffer *)
+            ops.clear () ;
+
+            (* Parse ANSI output into buffer using batch set_char *)
+            Matrix_ansi_parser.reset parser ;
+            let _ =
+              Matrix_ansi_parser.parse_into_batch
+                parser
+                ops
+                ~row:0
+                ~col:0
+                view_output
+            in
+
+            (* Render debug overlay if enabled *)
+            if Lazy.force overlay_enabled then
+              render_overlay_text
+                ~loop_fps:(Matrix_render_loop.loop_fps render_loop)
+                ~render_fps:(Matrix_render_loop.current_fps render_loop)
+                ~tps:tps_tracker.current_tps
+                ~cols
+                ops) ;
+
+        (* On modal OPEN, do synchronous clear+render to avoid overlay artifacts.
        On modal CLOSE, just let diff handle it - no clear needed. *)
-    if modal_just_changed && modal_active then begin
-      Matrix_buffer.mark_all_dirty buffer ;
-      Matrix_terminal.write terminal "\027[2J\027[H" ;
-      Matrix_render_loop.force_render render_loop
-    end ;
+        if modal_just_changed && modal_active then begin
+          Matrix_buffer.mark_all_dirty buffer ;
+          Matrix_terminal.write terminal "\027[2J\027[H" ;
+          Matrix_render_loop.force_render render_loop
+        end ;
 
-    (* Poll for input with short timeout to maintain TPS *)
-    let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
-    match Matrix_input.poll input ~timeout_ms with
-    | Matrix_input.Quit ->
-        Matrix_render_loop.shutdown render_loop ;
-        `Quit
-    | Matrix_input.Resize ->
-        Matrix_terminal.invalidate_size_cache terminal ;
-        (* Clear terminal on resize to avoid artifacts from old layout *)
-        Matrix_terminal.write terminal "\027[2J\027[H" ;
-        Matrix_buffer.mark_all_dirty buffer ;
-        loop packed
-    | Matrix_input.Refresh ->
-        let state' = Page.service_cycle state 0 in
-        check_navigation (Packed ((module Page), state')) tick_start
-    | Matrix_input.Idle ->
-        (* No input and not time for refresh - maintain TPS and continue *)
-        let elapsed = Unix.gettimeofday () -. tick_start in
-        let sleep_time = tick_time_s -. elapsed in
-        if sleep_time > 0.001 then Thread.delay sleep_time ;
-        loop packed
-    | Matrix_input.Key key ->
-        (* Debug: log received key if MIAOU_DEBUG is set *)
-        if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
-          let oc =
-            open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
-          in
-          Printf.fprintf
-            oc
-            "Key received: %S, modal_active=%b, has_modal=%b\n%!"
-            key
-            (Modal_manager.has_active ())
-            (Page.has_modal state) ;
-          close_out oc) ;
-        let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
-        (* Set modal size before handling keys *)
-        Modal_manager.set_current_size rows cols ;
-        (* Check if modal is active - if so, send keys to modal instead of page *)
-        if Modal_manager.has_active () then begin
-          Modal_manager.handle_key key ;
-          (* If modal was closed by Esc, drain any pending Esc keys to prevent
+        (* Poll for input with short timeout to maintain TPS *)
+        let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
+        match Matrix_input.poll input ~timeout_ms with
+        | Matrix_input.Quit ->
+            Matrix_render_loop.shutdown render_loop ;
+            `Quit
+        | Matrix_input.Resize ->
+            Matrix_terminal.invalidate_size_cache terminal ;
+            (* Clear terminal on resize to avoid artifacts from old layout *)
+            Matrix_terminal.write terminal "\027[2J\027[H" ;
+            Matrix_buffer.mark_all_dirty buffer ;
+            loop packed
+        | Matrix_input.Refresh ->
+            let state' = Page.service_cycle state 0 in
+            check_navigation (Packed ((module Page), state')) tick_start
+        | Matrix_input.Idle ->
+            (* No input and not time for refresh - maintain TPS and continue *)
+            let elapsed = Unix.gettimeofday () -. tick_start in
+            let sleep_time = tick_time_s -. elapsed in
+            eio_sleep env sleep_time ;
+            loop packed
+        | Matrix_input.Key key ->
+            (* Debug: log received key if MIAOU_DEBUG is set *)
+            if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then (
+              let oc =
+                open_out_gen
+                  [Open_append; Open_creat]
+                  0o644
+                  "/tmp/miaou-keys.log"
+              in
+              Printf.fprintf
+                oc
+                "Key received: %S, modal_active=%b, has_modal=%b\n%!"
+                key
+                (Modal_manager.has_active ())
+                (Page.has_modal state) ;
+              close_out oc) ;
+            let _ = Matrix_input.drain_nav_keys input (Matrix_input.Key key) in
+            (* Set modal size before handling keys *)
+            Modal_manager.set_current_size rows cols ;
+            (* Check if modal is active - if so, send keys to modal instead of page *)
+            if Modal_manager.has_active () then begin
+              Modal_manager.handle_key key ;
+              (* If modal was closed by Esc, drain any pending Esc keys to prevent
              double-navigation (modal close + page back) *)
-          if
-            (key = "Esc" || key = "Escape") && not (Modal_manager.has_active ())
-          then ignore (Matrix_input.drain_esc_keys input) ;
-          (* After modal handles key, check if navigation requested *)
-          let state' = Page.service_cycle state 0 in
-          check_navigation (Packed ((module Page), state')) tick_start
-        end
-        else if Page.has_modal state then begin
-          (* Page has its own modal - use page's modal key handler *)
-          let state' = Page.handle_modal_key state key ~size in
-          (* If modal was closed by Esc, drain any pending Esc keys *)
-          if (key = "Esc" || key = "Escape") && not (Page.has_modal state') then
-            ignore (Matrix_input.drain_esc_keys input) ;
-          check_navigation (Packed ((module Page), state')) tick_start
-        end
-        else
-          (* Handle keys like lambda-term:
+              if
+                (key = "Esc" || key = "Escape")
+                && not (Modal_manager.has_active ())
+              then ignore (Matrix_input.drain_esc_keys input) ;
+              (* After modal handles key, check if navigation requested *)
+              let state' = Page.service_cycle state 0 in
+              check_navigation (Packed ((module Page), state')) tick_start
+            end
+            else if Page.has_modal state then begin
+              (* Page has its own modal - use page's modal key handler *)
+              let state' = Page.handle_modal_key state key ~size in
+              (* If modal was closed by Esc, drain any pending Esc keys *)
+              if (key = "Esc" || key = "Escape") && not (Page.has_modal state')
+              then ignore (Matrix_input.drain_esc_keys input) ;
+              check_navigation (Packed ((module Page), state')) tick_start
+            end
+            else
+              (* Handle keys like lambda-term:
              - Enter: special handling via Page.enter
              - Esc: special handling, then handle_key
              - Navigation keys (arrows, Tab): always handle_key
              - Other keys: keymap first, then handle_key *)
-          let state' =
-            if key = "Enter" then
-              (* Enter: call Page.enter like lambda-term does *)
-              Page.enter state
-            else if key = "Esc" || key = "Escape" then
-              (* Esc: use handle_key for page-specific behavior *)
-              Page.handle_key state key ~size
-            else if
-              key = "Up" || key = "Down" || key = "Left" || key = "Right"
-              || key = "Tab" || key = "Shift-Tab"
-            then
-              (* Navigation keys: always use handle_key *)
-              Page.handle_key state key ~size
-            else
-              (* Other keys: try keymap first, fall back to handle_key *)
-              let keymap = Page.keymap state in
-              let keymap_match =
-                List.find_opt (fun (k, _, _) -> k = key) keymap
+              let state' =
+                if key = "Enter" then
+                  (* Enter: call Page.enter like lambda-term does *)
+                  Page.enter state
+                else if key = "Esc" || key = "Escape" then
+                  (* Esc: use handle_key for page-specific behavior *)
+                  Page.handle_key state key ~size
+                else if
+                  key = "Up" || key = "Down" || key = "Left" || key = "Right"
+                  || key = "Tab" || key = "Shift-Tab"
+                then
+                  (* Navigation keys: always use handle_key *)
+                  Page.handle_key state key ~size
+                else
+                  (* Other keys: try keymap first, fall back to handle_key *)
+                  let keymap = Page.keymap state in
+                  let keymap_match =
+                    List.find_opt (fun (k, _, _) -> k = key) keymap
+                  in
+                  match keymap_match with
+                  | Some (_, transformer, _) -> transformer state
+                  | None -> Page.handle_key state key ~size
               in
-              match keymap_match with
-              | Some (_, transformer, _) -> transformer state
-              | None -> Page.handle_key state key ~size
-          in
-          check_navigation (Packed ((module Page), state')) tick_start
-    | Matrix_input.Mouse (row, col) ->
-        let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
-        (* Set modal size before handling keys *)
-        Modal_manager.set_current_size rows cols ;
-        (* Check if modal is active - if so, send keys to modal instead of page *)
-        if Modal_manager.has_active () then begin
-          Modal_manager.handle_key mouse_key ;
-          let state' = Page.service_cycle state 0 in
-          check_navigation (Packed ((module Page), state')) tick_start
-        end
-        else if Page.has_modal state then
-          (* Page has its own modal - use page's modal key handler *)
-          let state' = Page.handle_modal_key state mouse_key ~size in
-          check_navigation (Packed ((module Page), state')) tick_start
-        else
-          let state' = Page.handle_key state mouse_key ~size in
-          check_navigation (Packed ((module Page), state')) tick_start
-  and check_navigation packed tick_start =
-    let (Packed ((module Page), state)) = packed in
-    let next = Page.next_page state in
-    (* Debug: log navigation if MIAOU_DEBUG is set *)
-    (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
-       match next with
-       | Some name ->
-           let oc =
-             open_out_gen [Open_append; Open_creat] 0o644 "/tmp/miaou-keys.log"
-           in
-           Printf.fprintf oc "Navigation requested: %S\n%!" name ;
-           close_out oc
-       | None -> ()) ;
-    match next with
-    | Some "__QUIT__" ->
-        Matrix_render_loop.shutdown render_loop ;
-        `Quit
-    | Some name -> `SwitchTo name
-    | None ->
-        (* Maintain TPS by sleeping if we have time left *)
-        let elapsed = Unix.gettimeofday () -. tick_start in
-        let sleep_time = tick_time_s -. elapsed in
-        if sleep_time > 0.001 then Thread.delay sleep_time ;
-        loop (Packed ((module Page), state))
-  in
+              check_navigation (Packed ((module Page), state')) tick_start
+        | Matrix_input.Mouse (row, col) ->
+            let mouse_key = Printf.sprintf "Mouse:%d:%d" row col in
+            (* Set modal size before handling keys *)
+            Modal_manager.set_current_size rows cols ;
+            (* Check if modal is active - if so, send keys to modal instead of page *)
+            if Modal_manager.has_active () then begin
+              Modal_manager.handle_key mouse_key ;
+              let state' = Page.service_cycle state 0 in
+              check_navigation (Packed ((module Page), state')) tick_start
+            end
+            else if Page.has_modal state then
+              (* Page has its own modal - use page's modal key handler *)
+              let state' = Page.handle_modal_key state mouse_key ~size in
+              check_navigation (Packed ((module Page), state')) tick_start
+            else
+              let state' = Page.handle_key state mouse_key ~size in
+              check_navigation (Packed ((module Page), state')) tick_start
+      and check_navigation packed tick_start =
+        let (Packed ((module Page), state)) = packed in
+        let next = Page.next_page state in
+        (* Debug: log navigation if MIAOU_DEBUG is set *)
+        (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then
+           match next with
+           | Some name ->
+               let oc =
+                 open_out_gen
+                   [Open_append; Open_creat]
+                   0o644
+                   "/tmp/miaou-keys.log"
+               in
+               Printf.fprintf oc "Navigation requested: %S\n%!" name ;
+               close_out oc
+           | None -> ()) ;
+        match next with
+        | Some "__QUIT__" ->
+            Matrix_render_loop.shutdown render_loop ;
+            `Quit
+        | Some name -> `SwitchTo name
+        | None ->
+            (* Maintain TPS by sleeping if we have time left *)
+            let elapsed = Unix.gettimeofday () -. tick_start in
+            let sleep_time = tick_time_s -. elapsed in
+            if sleep_time > 0.001 then Thread.delay sleep_time ;
+            loop (Packed ((module Page), state))
+      in
 
-  (* Start with initial page *)
-  let (module P) = initial_page in
-  let result = loop (Packed ((module P), P.init ())) in
+      (* Start with initial page *)
+      let (module P) = initial_page in
+      let result = loop (Packed ((module P), P.init ())) in
 
-  (* Cleanup *)
-  Matrix_render_loop.shutdown render_loop ;
-  Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show ;
-  Matrix_terminal.write terminal "\027[0m" ;
-  Matrix_terminal.cleanup terminal ;
+      (* Cleanup *)
+      Matrix_render_loop.shutdown render_loop ;
+      Matrix_terminal.write terminal Matrix_ansi_writer.cursor_show ;
+      Matrix_terminal.write terminal "\027[0m" ;
+      Matrix_terminal.cleanup terminal ;
 
-  result
+      result)
+(* Close with_page_switch *)
