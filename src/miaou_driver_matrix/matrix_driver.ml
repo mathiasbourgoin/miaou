@@ -113,6 +113,9 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
       (* Track modal state to trigger full redraw on modal open/close *)
       let last_modal_active = ref false in
 
+      (* Frame counter for periodic partial refresh (doesn't reset like tick_count) *)
+      let frame_counter = ref 0 in
+
       (* Main loop - runs in main domain, handles input and effects *)
       let rec loop packed =
         let tick_start = Unix.gettimeofday () in
@@ -181,12 +184,16 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                 ops) ;
 
         (* On modal OPEN, do synchronous clear+render to avoid overlay artifacts.
-       On modal CLOSE, just let diff handle it - no clear needed. *)
+           On modal CLOSE, just let diff handle it - no clear needed. *)
         if modal_just_changed && modal_active then begin
           Matrix_buffer.mark_all_dirty buffer ;
           Matrix_terminal.write terminal "\027[2J\027[H" ;
           Matrix_render_loop.force_render render_loop
         end ;
+
+        (* Periodic full refresh every 120 frames (~2s at 60 TPS) to catch any artifacts *)
+        incr frame_counter ;
+        if !frame_counter mod 120 = 0 then Matrix_buffer.mark_all_dirty buffer ;
 
         (* Poll for input with short timeout to maintain TPS *)
         let timeout_ms = int_of_float (config.tick_time_ms *. 0.8) in
