@@ -274,7 +274,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             Matrix_buffer.mark_all_dirty buffer ;
             loop packed
         | Matrix_input.Refresh ->
-            let ps' = Page.service_cycle ps 0 in
+            let ps' = Page.service_cycle (Page.refresh ps) 0 in
             check_navigation (Packed ((module Page), ps')) tick_start
         | Matrix_input.Idle ->
             (* No input and not time for refresh - maintain TPS and continue *)
@@ -319,7 +319,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                 && not (Modal_manager.has_active ())
               then ignore (Matrix_input.drain_esc_keys input) ;
               (* After modal handles key, check if navigation requested *)
-              let ps' = Page.service_cycle ps 0 in
+              let ps' = Page.service_cycle (Page.refresh ps) 0 in
               check_navigation (Packed ((module Page), ps')) tick_start
             end
             else if Page.has_modal ps then begin
@@ -350,7 +350,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
             (* Check if modal is active - if so, send keys to modal instead of page *)
             if Modal_manager.has_active () then begin
               Modal_manager.handle_key mouse_key ;
-              let ps' = Page.service_cycle ps 0 in
+              let ps' = Page.service_cycle (Page.refresh ps) 0 in
               check_navigation (Packed ((module Page), ps')) tick_start
             end
             else if Page.has_modal ps then
@@ -362,6 +362,12 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
               check_navigation (Packed ((module Page), ps')) tick_start
       and check_navigation packed tick_start =
         let (Packed ((module Page), ps)) = packed in
+        (* Check for pending navigation from modal callbacks *)
+        let ps =
+          match Modal_manager.take_pending_navigation () with
+          | Some page -> Navigation.goto page ps
+          | None -> ps
+        in
         let next = Navigation.pending ps in
         (* Debug: log navigation if MIAOU_DEBUG is set *)
         (if Sys.getenv_opt "MIAOU_DEBUG" = Some "1" then

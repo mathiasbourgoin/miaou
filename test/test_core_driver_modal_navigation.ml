@@ -10,8 +10,6 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   type msg = unit
 
-  let nav = ref None
-
   module Consuming_modal : Miaou_core.Tui_page.PAGE_SIG = struct
     type state = unit
 
@@ -73,7 +71,9 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
       ~commit_on:[]
       ~cancel_on:[]
       ~on_close:(fun _ outcome ->
-        match outcome with `Commit -> nav := Some "NEXT" | _ -> ())
+        match outcome with
+        | `Commit -> Miaou_core.Modal_manager.set_pending_navigation "NEXT"
+        | _ -> ())
 
   let init () =
     Miaou_core.Modal_manager.clear () ;
@@ -90,12 +90,7 @@ module Dummy_page : Miaou_core.Tui_page.PAGE_SIG = struct
 
   let service_select ps _ = ps
 
-  let service_cycle ps _ =
-    match !nav with
-    | Some page ->
-        nav := None ;
-        Miaou_core.Navigation.goto page ps
-    | None -> ps
+  let service_cycle ps _ = ps
 
   let back ps = ps
 

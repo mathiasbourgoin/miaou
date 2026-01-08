@@ -5,9 +5,16 @@
 
 module Tui_page = Miaou_core.Tui_page
 module Navigation = Miaou_core.Navigation
+module Modal_manager = Miaou_core.Modal_manager
 module Capture = Miaou_core.Tui_capture
 module Fibers = Miaou_helpers.Fiber_runtime
 open LTerm_geom
+
+(* Helper: apply any pending navigation from modal callbacks to pstate *)
+let apply_pending_modal_nav ps =
+  match Modal_manager.take_pending_navigation () with
+  | Some page -> Navigation.goto page ps
+  | None -> ps
 
 module Key_queue = struct
   let q : string Queue.t = Queue.create ()
@@ -116,7 +123,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                Printf.eprintf
                  "[driver][debug] No key in queue, refreshing page\n%!"
              with _ -> ()) ;
-            let ps' = P.refresh ps in
+            let ps' = P.refresh ps |> apply_pending_modal_nav in
             match Navigation.pending ps' with
             | Some "__QUIT__" -> `Quit
             | Some name -> `SwitchTo name
@@ -153,6 +160,7 @@ let run (initial_page : (module Tui_page.PAGE_SIG)) :
                   | "q" | "Q" -> Navigation.quit ps
                   | _ -> P.handle_key ps k ~size:(get_size ())
               in
+              let ps' = apply_pending_modal_nav ps' in
               render_page_with (module P) ps' ;
               match Navigation.pending ps' with
               | Some "__QUIT__" -> `Quit

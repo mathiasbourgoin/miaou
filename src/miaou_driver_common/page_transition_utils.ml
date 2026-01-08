@@ -19,6 +19,12 @@ type 'r handler = {
 
 let handle_next_page (type s r) (module P : PAGE_SIG with type state = s)
     (ps : s Navigation.t) (handler : r handler) : r =
+  (* Check for pending navigation from modal callbacks *)
+  let ps =
+    match Miaou_core.Modal_manager.take_pending_navigation () with
+    | Some page -> Navigation.goto page ps
+    | None -> ps
+  in
   match Navigation.pending ps with
   | Some "__QUIT__" -> handler.on_quit ()
   | Some name -> (

@@ -24,7 +24,14 @@ type driver_key = Term_events.driver_key =
 let run_with_key_source ~read_key (module Page : PAGE_SIG) :
     [`Quit | `SwitchTo of string] =
   let default_size = {LTerm_geom.rows = 24; cols = 80} in
+  (* Helper: apply any pending navigation from modal callbacks *)
+  let apply_pending_modal_nav ps =
+    match Modal_manager.take_pending_navigation () with
+    | Some page -> Navigation.goto page ps
+    | None -> ps
+  in
   let check_nav ps =
+    let ps = apply_pending_modal_nav ps in
     match Navigation.pending ps with
     | Some "__QUIT__" -> `Quit
     | Some p -> `SwitchTo p
@@ -34,7 +41,7 @@ let run_with_key_source ~read_key (module Page : PAGE_SIG) :
     match (read_key () : driver_key) with
     | Quit -> `Quit
     | Refresh -> (
-        let ps' = Page.service_cycle ps 0 in
+        let ps' = Page.service_cycle (Page.refresh ps) 0 in
         match check_nav ps' with
         | `Continue ps'' -> loop ps''
         | `Quit -> `Quit

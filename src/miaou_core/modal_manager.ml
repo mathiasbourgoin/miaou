@@ -179,6 +179,19 @@ let take_consume_next_key () =
   consume_next_key_flag := false ;
   v
 
+(* Pending navigation from modal on_close callbacks.
+   Modal callbacks can call set_pending_navigation to request navigation
+   without needing access to the parent page's pstate. The driver checks
+   this after modal close and applies it to the pstate. *)
+let pending_navigation_ref : string option ref = ref None
+
+let set_pending_navigation page = pending_navigation_ref := Some page
+
+let take_pending_navigation () =
+  let v = !pending_navigation_ref in
+  pending_navigation_ref := None ;
+  v
+
 let top_ui_opt () =
   match List.rev !stack with [] -> None | Frame r :: _ -> Some r.ui
 
