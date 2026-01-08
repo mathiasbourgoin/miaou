@@ -350,6 +350,13 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
           | _ -> false
         in
 
+        (* Helper: apply any pending navigation from modal callbacks to pstate *)
+        let apply_pending_modal_nav ps =
+          match Modal_manager.take_pending_navigation () with
+          | Some page -> Navigation.goto page ps
+          | None -> ps
+        in
+
         (* Eio-aware input refill: uses short polling with Eio.Time.sleep to yield
        to scheduler and check for signals frequently. *)
         let refill timeout =
@@ -809,7 +816,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
             | `Refresh -> (
                 (* Periodic idle tick: let the page run its service cycle (for throttled refresh/background jobs). *)
                 if Quit_flag.is_pending () then Quit_flag.clear_pending () ;
-                let ps' = Page.service_cycle ps 0 in
+                let ps' =
+                  Page.service_cycle (Page.refresh ps) 0
+                  |> apply_pending_modal_nav
+                in
                 match Navigation.pending ps' with
                 | Some page -> `SwitchTo page
                 | None ->
@@ -832,7 +842,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                propagate Enter to the underlying page. *)
                     if Modal_manager.take_consume_next_key () then
                       if not (Modal_manager.has_active ()) then (
-                        let ps' = Page.service_cycle ps 0 in
+                        let ps' =
+                          Page.service_cycle (Page.refresh ps) 0
+                          |> apply_pending_modal_nav
+                        in
                         match Navigation.pending ps' with
                         | Some page -> `SwitchTo page
                         | None ->
@@ -842,7 +855,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                         clear_and_render ps key_stack ;
                         loop ps key_stack)
                     else if not (Modal_manager.has_active ()) then (
-                      let ps' = Page.service_cycle ps 0 in
+                      let ps' =
+                        Page.service_cycle (Page.refresh ps) 0
+                        |> apply_pending_modal_nav
+                      in
                       match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
@@ -1102,7 +1118,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                     Modal_manager.handle_key "Esc" ;
                     if Modal_manager.take_consume_next_key () then
                       if not (Modal_manager.has_active ()) then (
-                        let ps' = Page.service_cycle ps 0 in
+                        let ps' =
+                          Page.service_cycle (Page.refresh ps) 0
+                          |> apply_pending_modal_nav
+                        in
                         match Navigation.pending ps' with
                         | Some page -> `SwitchTo page
                         | None ->
@@ -1112,7 +1131,10 @@ let run (initial_page : (module PAGE_SIG)) : [`Quit | `SwitchTo of string] =
                         clear_and_render ps key_stack ;
                         loop ps key_stack)
                     else if not (Modal_manager.has_active ()) then (
-                      let ps' = Page.service_cycle ps 0 in
+                      let ps' =
+                        Page.service_cycle (Page.refresh ps) 0
+                        |> apply_pending_modal_nav
+                      in
                       match Navigation.pending ps' with
                       | Some page -> `SwitchTo page
                       | None ->
