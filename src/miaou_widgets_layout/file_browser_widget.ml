@@ -594,22 +594,31 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
         in
         [line]
   in
-  let hidden_hint = if w.show_hidden then "h hide" else "h show hidden" in
-  let header_controls =
-    W.dim
-      (truncate
-         (Printf.sprintf
-            "↑/↓ nav • %s • Tab edit • Backspace up • Enter select"
-            hidden_hint)
-      |> pad_to_width)
-  in
-  let header = path_bar @ [header_controls] in
+  let hidden_hint = if w.show_hidden then "hide hidden" else "show hidden" in
+  let header = path_bar in
   (* Vertical sizing: render exactly [rows_total] lines so parent frames don't
      crop in a way that desynchronizes cursor and viewport. *)
+  let footer_pairs =
+    [
+      ("↑/↓", "navigate");
+      ("PgUp/PgDn", "page");
+      ("Space", "select");
+      ("Enter", "confirm");
+      ("Esc", "cancel");
+      ("Backspace", "parent");
+      ("Tab", "edit path");
+      ("h", hidden_hint);
+      ("n", "new directory");
+    ]
+  in
+  let footer_controls =
+    W.footer_hints_wrapped_capped ~cols:size.cols ~max_lines:2 footer_pairs
+  in
+  let footer_hint_lines = String.split_on_char '\n' footer_controls in
   let header_lines = List.length header in
   let footer_lines =
-    3
-    (* blank + status + footer_controls *)
+    2 + List.length footer_hint_lines
+    (* blank + status + footer hint lines *)
   in
   let body_capacity = max 0 (rows_total - header_lines - footer_lines) in
   let max_shown = min total body_capacity in
@@ -679,10 +688,10 @@ let render_with_size w ~focus:_ ~(size : LTerm_geom.size) =
     in
     s |> truncate |> pad_to_width
   in
-  let footer_controls =
-    W.dim (truncate "Enter select • n new" |> pad_to_width)
+  let padded_footer_hints =
+    footer_hint_lines |> List.map (fun l -> W.dim (truncate l |> pad_to_width))
   in
-  let sections = header @ body @ [""; status; footer_controls] in
+  let sections = header @ body @ ("" :: status :: padded_footer_hints) in
   Helpers.concat_lines sections
 
 let render w ~focus =
