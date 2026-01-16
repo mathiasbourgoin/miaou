@@ -29,6 +29,11 @@ Features at a glance
 - Debug overlay for performance monitoring (`MIAOU_OVERLAY=1`)
 - Example demo with system monitoring, chart visualization, and image display capabilities
 
+Projects using MIAOU
+--------------------
+
+- **[Octez Manager](https://octez-manager.tezos.com/)** — A TUI for managing Tezos node infrastructure
+
 Backends
 --------
 
