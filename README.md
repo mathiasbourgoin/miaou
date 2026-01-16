@@ -623,9 +623,7 @@ Status & Contributions
 
 MIAOU is early and experimental.
 
-Pull requests are not open yet—development is coordinated by AI agents under human direction.
-
-Issues, bug reports, and feature requests are welcome.
+Pull requests, issues, bug reports, and feature requests are welcome.
 
 License
 -------
