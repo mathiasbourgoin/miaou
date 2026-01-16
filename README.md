@@ -8,7 +8,7 @@ It's an acronym: Model, Interface, Application, OCaml, UI.
 
 It’s also the French way of writing a cat’s meow—a nod to OCaml’s French roots.
 
-And like a cat, it’s light, curious, and perfectly at home on your terminal. 🐾
+And like a cat, it's at home on your terminal. 🐾
 
 ## Project status & ownership
 
@@ -16,7 +16,7 @@ And like a cat, it’s light, curious, and perfectly at home on your terminal. �
 - **Repository:** https://github.com/trilitech/miaou
 - **License:** MIT (SPDX: MIT)
 
-MIAOU is a high-quality, easy-to-use TUI foundation for OCaml applications (installers, dashboards, service consoles, etc.).
+MIAOU is a TUI foundation for OCaml applications (installers, dashboards, service consoles, etc.).
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines and [SECURITY.md](./SECURITY.md) for security policy.
 
@@ -39,15 +39,15 @@ Backends
 
 MIAOU supports three rendering backends:
 
-1. **Matrix (Default)**: High-performance terminal driver with cell-based double buffering and diff-based rendering. Uses OCaml 5 Domains for true parallelism: render domain runs at 60 FPS while main domain handles input at 30 TPS. Only changed cells are written to terminal, eliminating flicker. Pure ANSI output with no lambda-term dependency.
+1. **Matrix (Default)**: Terminal driver with cell-based double buffering and diff-based rendering. Uses OCaml 5 Domains for parallelism: render domain runs at 60 FPS while main domain handles input at 30 TPS. Only changed cells are written to terminal. Pure ANSI output with no lambda-term dependency.
 
-2. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Excellent compatibility across terminals. Chart widgets now support **Unicode Braille mode** for higher resolution rendering (2×4 dots per cell vs 1 character per cell).
+2. **Lambda-Term (TUI)**: Character-based terminal rendering using Unicode box-drawing and block characters. Good compatibility across terminals. Chart widgets support **Unicode Braille mode** for higher resolution (2×4 dots per cell).
 
-3. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, smooth curves, pixel-perfect rendering, and full RGB color support. Provides superior visual quality for charts, sparklines, images, and QR codes.
+3. **SDL2 (Experimental)**: Hardware-accelerated graphics rendering with anti-aliased lines, pixel-perfect rendering, and full RGB color support.
 
 **Backend selection** (priority: Matrix > SDL > Lambda-Term):
 ```sh
-MIAOU_DRIVER=matrix  # Default - high-performance diff rendering
+MIAOU_DRIVER=matrix  # Default - diff-based rendering
 MIAOU_DRIVER=term    # Lambda-Term fallback
 MIAOU_DRIVER=sdl     # SDL2 graphics (requires tsdl packages)
 ```
@@ -62,9 +62,9 @@ For programmatic control from OCaml code, see [`docs/MOUSE_CONTROL.md`](./docs/M
 
 The SDL2 backend (`miaou-driver-sdl` package) requires Tsdl + Tsdl_ttf + Tsdl_image. Run with `MIAOU_DRIVER=sdl dune exec -- miaou.demo-sdl`. Provide a monospaced font via `MIAOU_SDL_FONT=/path/to/font.ttf` if auto-detection fails.
 
-**SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets automatically use native SDL rendering when the SDL backend is active, providing smooth anti-aliased graphics instead of text approximation. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
+**SDL-Enhanced Widgets**: Chart widgets (sparkline, line chart), image viewer, and QR code widgets use native SDL rendering when the SDL backend is active. See [`src/miaou_widgets_display/SDL_CHARTS_README.md`](./src/miaou_widgets_display/SDL_CHARTS_README.md) for details.
 
-**Braille Charts**: Terminal chart widgets support Unicode Braille patterns for higher resolution. Each terminal cell becomes a 2×4 dot grid, providing smoother curves and denser plots. See the braille demo (`example/demos/braille/`) for usage examples.
+**Braille Charts**: Terminal chart widgets support Unicode Braille patterns (2×4 dots per cell). See the braille demo (`example/demos/braille/`) for examples.
 
 Quick start — build & depend
 ----------------------------
@@ -105,7 +105,7 @@ MIAOU is split into multiple opam packages to allow flexible installation:
 | `miaou-tui` | Terminal-only (recommended for most users) | No |
 | `miaou` | Full install with SDL support | Yes |
 | `miaou-core` | Core library and widgets | No |
-| `miaou-driver-matrix` | High-performance Matrix driver (default) | No |
+| `miaou-driver-matrix` | Matrix driver (default) | No |
 | `miaou-driver-term` | Lambda-Term driver | No |
 | `miaou-driver-sdl` | SDL2 driver | Yes |
 | `miaou-runner` | Runner with backend selection | No (SDL optional) |
@@ -572,7 +572,7 @@ Debugging & environment variables
 - `MIAOU_TUI_ROWS` / `MIAOU_TUI_COLS` — override terminal geometry for the Lambda-Term driver during development
 
 **Backend Selection:**
-- `MIAOU_DRIVER=matrix` — use the Matrix driver (default, high-performance diff rendering)
+- `MIAOU_DRIVER=matrix` — use the Matrix driver (default)
 - `MIAOU_DRIVER=term` — use the Lambda-Term driver
 - `MIAOU_DRIVER=sdl` — use the SDL2 backend (requires `tsdl` + `tsdl-ttf` + `tsdl-image`)
 
@@ -608,12 +608,12 @@ Design notes
 
 MIAOU is intentionally experimental. The library splits responsibilities into three conceptual parts:
 
-- **Core:** Public API, page lifecycle, modal manager, driver-facing helpers. Now includes a robust capability system for abstracting side-effects.
+- **Core:** Public API, page lifecycle, modal manager, driver-facing helpers. Includes a capability system for abstracting side-effects.
 - **Widgets:** Reusable UI widgets including:
   - **Layout:** tables, panes, file browser, progress bars
   - **Input:** textboxes, selectors, modal forms
   - **Display:** sparkline charts, line charts, bar charts, image viewer, QR code generator, pager, tree view, description lists
-  - Many widgets support SDL-enhanced rendering for superior visual quality
+  - Some widgets support SDL-enhanced rendering
 - **Internals:** Renderer and implementation details that are not part of the public API.
 
 This split helps enforce that only the driver composes overlays and that pages cannot directly call internal renderer APIs.
@@ -621,11 +621,11 @@ This split helps enforce that only the driver composes overlays and that pages c
 Status & Contributions
 ----------------------
 
-MIAOU is early, experimental, and a little chaotic—like a kitten learning to climb curtains.
+MIAOU is early and experimental.
 
-Pull requests are not welcome (yet). The whole point of the experiment is to practice cat-herded development: changes are coordinated by agents/LLMs under human direction.
+Pull requests are not open yet—development is coordinated by AI agents under human direction.
 
-Issues, bug reports, and feature requests are very welcome. If you spot something odd or dream of a feature, please open an issue in the project's tracker.
+Issues, bug reports, and feature requests are welcome.
 
 License
 -------
