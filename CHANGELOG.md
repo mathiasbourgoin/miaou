@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-01-16
+
+### Added
+
+- **`enable_mouse` parameter** for `Runner_tui.run` to programmatically control mouse tracking
+  ```ocaml
+  (* Disable mouse tracking from code *)
+  Runner_tui.run ~enable_mouse:false my_page
+  ```
+
+### Changed
+
+- Version bump to 0.1.3
+
+## [0.1.2] - 2026-01-16
+
+### Added
+
+- **Optional mouse tracking** via environment variable `MIAOU_ENABLE_MOUSE`
+  - Set `MIAOU_ENABLE_MOUSE=0` or `MIAOU_ENABLE_MOUSE=no` to disable mouse tracking
+  - Allows traditional terminal copy/paste when mouse tracking interferes
+  - See [`docs/MOUSE_CONTROL.md`](./docs/MOUSE_CONTROL.md) for details
+- **`Matrix_config.with_mouse_disabled`** helper for programmatic mouse control
+
+### Changed
+
+- Version bump to 0.1.2
+
+## [0.1.1] - 2026-01-16
+
+### Fixed
+
+- **Matrix driver race condition** in dirty flag handling that caused intermittent render artifacts
+  - `clear_dirty` was called outside the buffer lock, allowing new UI writes to be skipped
+  - Now cleared atomically inside `compute_atomic` while holding the lock
+- **Lambda-term `split_lines_preserve`** incorrectly added an extra empty element
+  - `String.split_on_char` already handles trailing delimiters correctly
+
+### Changed
+
+- File browser fixes for edit mode (Space key handling, selection highlight)
+- Version bump to 0.1.1
+
 ## [Unreleased]
 
 ### API

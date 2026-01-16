@@ -41,9 +41,18 @@ let _outcome = Miaou_driver_matrix.Matrix_driver.run ~config:(Some config) my_pa
 ()
 ```
 
-#### Using the runner (multi-driver support)
+#### Using Runner_tui
 
-If you're using the `miaou-runner` package which supports multiple backends, you'll need to set the environment variable before calling the runner, as the runner doesn't expose config parameters:
+If you're using the `miaou-runner-tui` package (terminal-only), pass `~enable_mouse:false`:
+
+```ocaml
+let outcome = Miaou_runner_tui.Runner_tui.run ~enable_mouse:false my_page in
+()
+```
+
+#### Using Runner_native (SDL with fallback)
+
+For `Runner_native`, set the environment variable before starting:
 
 ```ocaml
 (* Set environment variable before starting *)

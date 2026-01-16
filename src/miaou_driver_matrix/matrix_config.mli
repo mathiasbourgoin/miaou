@@ -20,7 +20,8 @@ type t = {
   tps_cap : int;  (** Maximum ticks per second for effects domain (1-120) *)
   tick_time_ms : float;  (** Minimum time between ticks in ms *)
   debug : bool;  (** Enable debug logging *)
-  enable_mouse : bool;  (** Enable mouse tracking (set to false for easier copy/paste) *)
+  enable_mouse : bool;
+      (** Enable mouse tracking (set to false for easier copy/paste) *)
 }
 
 (** Default configuration: 60 FPS, 30 TPS, no debug. *)
