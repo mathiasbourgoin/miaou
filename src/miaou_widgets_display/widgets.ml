@@ -526,13 +526,33 @@ let overlay ~base ~content ~top ~left ~canvas_h ~canvas_w : string =
 let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
     ?(max_width = 76) ?(max_height = 30) ?(dim_background = false) ?left
     ~content ~base () =
-  let cont_lines = String.split_on_char '\n' content in
+  (* If title contains newlines, extract extra lines and prepend to content *)
+  let title_first_line, extra_title_lines =
+    match title with
+    | None -> (None, [])
+    | Some t -> (
+        match String.index_opt t '\n' with
+        | None -> (Some t, [])
+        | Some idx ->
+            let first = String.sub t 0 idx in
+            let rest = String.sub t (idx + 1) (String.length t - idx - 1) in
+            let rest_lines = String.split_on_char '\n' rest in
+            (Some first, rest_lines))
+  in
+  (* Prepend extra title lines to content *)
+  let content_with_title_extras =
+    if extra_title_lines = [] then content
+    else String.concat "\n" extra_title_lines ^ "\n" ^ content
+  in
+  let cont_lines = String.split_on_char '\n' content_with_title_extras in
   let inner_w =
     List.fold_left (fun acc s -> max acc (visible_chars_count s)) 0 cont_lines
   in
   let inner_h = List.length cont_lines in
   let title_w =
-    match title with None -> 0 | Some t -> visible_chars_count (" " ^ t ^ " ")
+    match title_first_line with
+    | None -> 0
+    | Some t -> visible_chars_count (" " ^ t ^ " ")
   in
   let content_w = min max_width (max inner_w title_w) in
   let total_w =
@@ -562,12 +582,13 @@ let center_modal ~(cols : int option) ?rows ?title ?(padding = 0)
   in
   let hline = repeat (max 0 inner_area_w) glyph_hline in
   let top_bar_colored =
-    match title with
+    match title_first_line with
     | None ->
         color_border glyph_corner_tl
         ^ color_border hline
         ^ color_border glyph_corner_tr
     | Some t ->
+        (* Only the first line of title gets the blue background *)
         let t' = " " ^ t ^ " " in
         let t_vis = visible_chars_count t' in
         let left_len = max 0 ((inner_area_w - t_vis) / 2) in
