@@ -87,10 +87,9 @@ let test_checkbox_tutorial_scroll () =
   let markdown = long_tutorial_markdown () in
   Tutorial_modal.set_payload ~title:"Checkbox tutorial" ~markdown ;
   let module TM = Tutorial_modal.Page in
-  let rec scroll state n =
-    if n <= 0 then state else scroll (TM.handle_key state "Down" ~size) (n - 1)
-  in
-  let content = TM.view (scroll (TM.init ()) 200) ~focus:true ~size in
+  (* Use G key to jump to end - now works correctly after pager fix *)
+  let state = TM.handle_key (TM.init ()) "G" ~size in
+  let content = TM.view state ~focus:true ~size in
   let has_footer =
     String.split_on_char '\n' content
     |> List.exists (fun line ->
