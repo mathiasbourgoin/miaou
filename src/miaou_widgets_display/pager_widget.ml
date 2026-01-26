@@ -650,7 +650,13 @@ let render ?cols ~win (t : t) ~focus : string =
     | `Lookup -> "Lookup"
     | `Help -> "Help")
     wrap ;
-  let start, count = visible_slice_wrapped ~win ~cols ~wrap t in
+  (* Calculate space needed for header and footer to avoid overflow.
+     Header: 1 line (status) + 1 optional line (search prompt)
+     Footer: 1-2 lines (keyboard hints, depends on focus) *)
+  let header_lines = match t.input_mode with `Search_edit -> 2 | _ -> 1 in
+  let footer_lines = if focus then 2 else 1 in
+  let body_win = max 1 (win - header_lines - footer_lines) in
+  let start, count = visible_slice_wrapped ~win:body_win ~cols ~wrap t in
   let stop = start + count in
   let body_lines =
     let slice =
@@ -825,6 +831,7 @@ let handle_search_input t ~key =
 
 (* Handle navigation keys; returns (t, consumed) *)
 let handle_nav_key t ~key ~win ~total ~page =
+  (* win is already adjusted for header/footer by caller *)
   let max_offset = max_offset_for ~total ~win in
   (* Helper: if we land at max_offset (bottom), auto-resume follow if it was on *)
   let with_auto_follow t new_offset =
@@ -899,8 +906,11 @@ let handle_key ?win (t : t) ~key : t * bool =
     | `Help -> "Help"
     | `None -> "None") ;
   let win = match win with Some w -> w | None -> default_win in
+  (* Reserve space for header/footer in navigation calculations.
+     Conservative estimate: 4 lines (matches render() adjustment). *)
+  let body_win = max 1 (win - 4) in
   let total = List.length t.lines in
-  let page = max 1 (win - 1) in
+  let page = max 1 (body_win - 1) in
   match t.input_mode with
   | `Search_edit -> (
       match handle_search_input t ~key with
@@ -913,6 +923,6 @@ let handle_key ?win (t : t) ~key : t * bool =
           (t, true)
       | _ -> (t, true) (* absorb all other keys while help is shown *))
   | `None | `Lookup -> (
-      match handle_nav_key t ~key ~win ~total ~page with
+      match handle_nav_key t ~key ~win:body_win ~total ~page with
       | Some result -> result
       | None -> (t, false))
