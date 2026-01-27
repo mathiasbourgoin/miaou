@@ -179,37 +179,74 @@ module Stateful = struct
 
   let next_page_impl : (unit -> string option) ref = ref (fun () -> None)
 
+  let current_page_name : string option ref = ref None
+
+  (* Tracks the most recent automatic page switch so that callers can detect
+     transitions even though [classify_next] returns [`Continue] after a
+     successful switch. Reset by [consume_last_switch]. *)
+  let last_switch : string option ref = ref None
+
+  (* Install closures for a given page module. This is the shared
+     initialisation logic used by both [init] and [switch_to_page].
+     Accepts the packed existential [(module PAGE_SIG)] so it works
+     with both a concrete module from [init] and a registry lookup. *)
+  let install_page (page : (module Tui_page.PAGE_SIG)) : unit =
+    let module P = (val page) in
+    let ps = ref (P.init ()) in
+    let render () = render_page_with (module P) !ps in
+    let handle_modal_key k =
+      if Miaou_core.Modal_manager.has_active () then
+        Miaou_core.Modal_manager.handle_key k
+    in
+    let handle_key (k : string) =
+      if Miaou_core.Modal_manager.has_active () then (
+        handle_modal_key k ;
+        render ())
+      else
+        let new_ps =
+          match k with
+          | "Up" -> P.move !ps (-1)
+          | "Down" -> P.move !ps 1
+          | "q" | "Q" -> Navigation.quit !ps
+          | _ -> P.handle_key !ps k ~size:(get_size ())
+        in
+        ps := new_ps ;
+        render ()
+    in
+    send_key_impl := handle_key ;
+    (refresh_impl :=
+       fun () ->
+         ps := P.refresh !ps ;
+         render ()) ;
+    (next_page_impl := fun () -> Navigation.pending !ps) ;
+    render ()
+
   let init (type s) (module P : Tui_page.PAGE_SIG with type state = s) : unit =
     with_page_scope (fun () ->
-        let ps = ref (P.init ()) in
-        let render () = render_page_with (module P) !ps in
-        let handle_modal_key k =
-          if Miaou_core.Modal_manager.has_active () then
-            Miaou_core.Modal_manager.handle_key k
-        in
-        let handle_key (k : string) =
-          if Miaou_core.Modal_manager.has_active () then (
-            handle_modal_key k ;
-            render ())
-          else
-            let new_ps =
-              match k with
-              | "Up" -> P.move !ps (-1)
-              | "Down" -> P.move !ps 1
-              | "q" | "Q" -> Navigation.quit !ps
-              | _ -> P.handle_key !ps k ~size:(get_size ())
-            in
-            ps := new_ps ;
-            render ()
-        in
-        send_key_impl := handle_key ;
-        (refresh_impl :=
-           fun () ->
-             ps := P.refresh !ps ;
-             render ()) ;
-        (next_page_impl := fun () -> Navigation.pending !ps) ;
-        initialized := true ;
-        render ())
+        install_page (module P : Tui_page.PAGE_SIG) ;
+        current_page_name := None ;
+        last_switch := None ;
+        initialized := true)
+
+  (** Switch the stateful driver to a different page looked up from the
+      {!Miaou_core.Registry}. Returns [true] if the page was found and the
+      switch succeeded. *)
+  let switch_to_page name =
+    match Miaou_core.Registry.find name with
+    | None -> false
+    | Some (module P) ->
+        install_page (module P : Tui_page.PAGE_SIG) ;
+        current_page_name := Some name ;
+        last_switch := Some name ;
+        true
+
+  (** Return and consume the last automatic page switch, if any.
+      This allows callers to detect that a switch occurred even though
+      [classify_next] now returns [`Continue] after a successful switch. *)
+  let consume_last_switch () =
+    let s = !last_switch in
+    last_switch := None ;
+    s
 
   let ensure () =
     if not !initialized then invalid_arg "Stateful driver not initialised"
@@ -220,6 +257,13 @@ module Stateful = struct
     | Some name -> `SwitchTo name
     | None -> `Continue
 
+  (* When the current page signals a navigation, try to switch automatically.
+     Returns the final classification after any switch. *)
+  let maybe_auto_switch () =
+    match classify_next () with
+    | `SwitchTo name as r -> if switch_to_page name then `Continue else r
+    | other -> other
+
   let send_key k =
     ensure () ;
     let forced_switch =
@@ -229,18 +273,18 @@ module Stateful = struct
     in
     if forced_switch then
       let target = String.sub k 11 (String.length k - 11) in
-      `SwitchTo target
+      if switch_to_page target then `Continue else `SwitchTo target
     else (
       Capture.record_keystroke k ;
       !send_key_impl k ;
-      classify_next ())
+      maybe_auto_switch ())
 
   let idle_wait ?(iterations = 1) ?(sleep = 0.0) () =
     ensure () ;
     let rec loop i =
       if i <= 0 then `Continue
       else
-        match classify_next () with
+        match maybe_auto_switch () with
         | (`Quit | `SwitchTo _) as r -> r
         | `Continue ->
             !refresh_impl () ;
