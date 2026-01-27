@@ -277,6 +277,7 @@
 
 ; Interactive test for multiline modal title issue
 ; Run with: dune exec test/modal_multiline_test.exe
+
 (executable
  (name modal_multiline_test)
  (libraries
